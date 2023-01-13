@@ -15,7 +15,7 @@ import time
 
 ICMP_ECHO_REQUEST = 8  # Platform specific
 DEFAULT_TIMEOUT = 2
-DEFAULT_COUNT = 10
+DEFAULT_COUNT = 1
 
 
 class Pinger(object):
@@ -54,6 +54,7 @@ class Pinger(object):
         """
         time_remaining = timeout
         while True:
+            print("Pong loop")
             start_time = time.time()
             readable = select.select([sock], [], [], time_remaining)
             time_spent = (time.time() - start_time)
@@ -115,7 +116,7 @@ class Pinger(object):
         self.send_ping(sock, my_ID)
         delay = self.receive_pong(sock, my_ID, self.timeout)
         sock.close()
-        print("ID:%s\ttarget_host:%s\tdelay:%s"%(my_ID, self.target_host, delay*1000))
+        print("socket_ID:%s\ttarget_host:%s\tdelay:%s"%(my_ID, self.target_host, delay*1000))
         return delay
 
     def ping_any(self, ID=os.getpid() & 0xFFFF):
