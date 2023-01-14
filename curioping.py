@@ -1,27 +1,24 @@
-import atexit
-import os
-import queue
 import struct
-import select
-import sys
-import time
-import logging
 
-import uuid
-
-from curio import run, spawn
-from curio.socket import *
 import curio
+from curio import spawn, timeout_after
+import curio.socket as socket
+import logging
+import sys
+import c
+import time
+import os.path as osp
+import os
+import platform
 
-# ICMP package Type 8 -- Echo: A a query a host sends to see if a potential destination system is available. Upon receiving an Echo message, the receiving device might send back an Echo Reply
-ICMP_ECHO_REQUEST = 8  # Platform specific
 
-DEFAULT_TIMEOUT = 2
-DEFAULT_COUNT = 10
+def file(filename):
+    os.makedirs(osp.dirname(filename), exist_ok=True)
+    return filename
 
 
-def creat_log(filename=f"{__name__}.log", level=logging.DEBUG, stream=sys.stdout):
-    log = logging.getLogger('')
+def create_logger(stream=sys.stdout, level=logging.INFO, filename=f"log/{__name__}.log") -> logging.Logger:
+    log = logging.getLogger("")
     formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
 
     # set up logging to console
@@ -31,22 +28,19 @@ def creat_log(filename=f"{__name__}.log", level=logging.DEBUG, stream=sys.stdout
     log.addHandler(console_handler)
 
     # set up logging to file
-    file_handler = logging.FileHandler(filename=filename)
+    file_handler = logging.FileHandler(filename=file(filename))
     file_handler.setLevel(level=level)
     file_handler.setFormatter(formatter)
     log.addHandler(file_handler)
 
+    log.debug(platform.uname())
+
     return log
 
-# create logging
-log = creat_log()
 
-listener_queue = queue.SimpleQueue()
-
-
-# It has nothing to do with class ping_sender, thus it's a global method
 def do_checksum(source_string):
     """  Verify the packet integritity """
+    log.info("calculate %s checksum" % source_string)
     sum = 0
     max_count = (len(source_string) / 2) * 2
     count = 0
@@ -65,119 +59,139 @@ def do_checksum(source_string):
     answer = ~sum
     answer = answer & 0xffff
     answer = answer >> 8 | (answer << 8 & 0xff00)
+    log.debug("check sum complete -> %s" % answer)
     return answer
 
 
-class ping_sender(object):
-    """ Pings a host """
+log = create_logger(level=c.LEVEL, filename=osp.join(c.LogDirectionary, "%s.log" % __name__))
 
-    def __init__(self, count=DEFAULT_COUNT, timeout=DEFAULT_TIMEOUT):
-        self.count = count
-        self.timeout = timeout
+# channel
+# sended package hash map remain for consumer
+hash_consumer = {}
 
-    async def send_ping(self, sock: socket, socket_ID: int, target_host: str) -> None:
-        """
-        Send Ping package
-        :param sock: socket.socket for TCP connection
-        :param socket_ID: int for identify, should be globally self-increment
-        :param target_host: target host IP address
-        :return: int, delay
-        """
-        target_addr = gethostbyname(target_host)
-        package_checksum = 0
+sender_queue = curio.Queue()
 
-        # create a dummy header with 0 checksum
-        header = struct.pack('bbHHh', ICMP_ECHO_REQUEST, 0, package_checksum, socket_ID, 1)
-
-        bytes_in_double = struct.calcsize("d")
-        data = (
-                       192 - bytes_in_double) * "Q"  # todo: check if this could change to meaning content like timestamp or stuff
-        data = struct.pack("d", time.time()) + bytes(data.encode("utf-8"))
-
-        # get checksum on the header and summy header
-        package_checksum = do_checksum(header + data)
-        header = struct.pack("bbHHh", ICMP_ECHO_REQUEST, 0, htons(package_checksum), socket_ID, 1)
-        package = header + data
-
-        # send package by socket
-        await sock.sendto(package, (target_addr, 1))
-
-        # send package info to listener_queue
-        listener_queue.put(socket_ID)
-
-
-class worker:
-    UUID = 0
-
+class producer:
+    Producer_ID = 0
     def __init__(self):
-        worker.UUID += 1
-        self.worker_ID = worker.UUID
-        self.target_id = 0  # 0 for idle and ip for waiting ip
-        self.sock = self.create_socket()
-        atexit.register(self.close_socket)
-        log.warning("socket created")  # temp
+        producer.Producer_ID += 1
+        self.ID = producer.Producer_ID
+        self.socket = self.create_socket(self.ID)
+        self.working = False
 
-    async def close_socket(self):
-        log.debug("socket close")
 
-        await self.sock.close()
+        curio.run_in_thread(self.worker)
 
-    def create_socket(self):
-        icmp = getprotobyname("icmp")
+    async def send_package(self, hostname:str, ID:int, sock:socket.socket=None):
+        """
+        Send ping to target host
+        :param sock: socket for sending ipv4
+        :param hostname: ipv4 address or hostname
+        :param ID: UUID for host
+        :return: Sender task instance
+        """
+        log.debug("Send ICMP -- %s -> %s, worker: %s" % (sock, hostname, ID))
+        if sock is None:
+            sock = self.socket
+
+        target_addr = await socket.gethostbyname(hostname)
+
+        # dummy checksum
+        my_checksum = 0
+        # Create a dummy heder with a 0 checksum.
+        header = struct.pack("bbHHh", c.ICMP_ECHO_REQUEST, 0, my_checksum, ID, 1)
+        bytes_In_double = struct.calcsize("d")
+        data = (192 - bytes_In_double) * "Q"
+        data = struct.pack("d", time.time()) + bytes(data.encode('utf-8'))
+
+        # Get the checksum on the data and the dummy header.
+        my_checksum = do_checksum(header + data)
+        header = struct.pack(
+            "bbHHh", c.ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
+        )
+        packet = header + data
+
+        t = await spawn(sock.sendto, packet, (target_addr, 1))
+        return t
+
+    async def create_socket(self, ID) -> socket.socket:
+        """
+        create a socket
+        :param ID: threadID
+        :return: socket
+        """
+        icmp = socket.getprotobyname("icmp")
         try:
-            sock = socket(AF_INET, SOCK_RAW, icmp)
-        except error as e:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
+            return sock
+        except socket.error as e:
             if e.errno == 1:
-                # Not superuser, so operation not permitted
+                # root privilliage needed
                 e.msg += "ICMP messages can only be sent from root user processes"
-                raise error(e.msg)
+                raise socket.error(e.msg)
         except Exception as e:
-            print("Exception: %s" % (e))
-        return sock
+            print("Exception: %s" % e)
 
-    def listening(self):
-        self.target_id = listener_queue.get()
+    async def worker(self):
+        self.working = True
+        while self.working:
+            ipv4 = await sender_queue.get()
+            ipv4addr, ID = ipv4.task()
+            hash_consumer[ID] = await spawn(self.send_package, ipv4addr, ID)
+            await sender_queue.task_done()
 
-    # todo: 将这部分从class中移除，然后专门建立一个用于receieve的class
-    async def receieve_pong(self, sock: socket, ID: int, timeout: int) -> int:
+
+    def worker_terminate(self):
+        self.working = False
+
+class ipv4(object):
+    ID = 0
+    def __init__(self, ip1, ip2, ip3, ip4):
+        self.ip = "%s.%s.%s.%s" % (ip1, ip2, ip3, ip4)
+        self.ip1, self.ip2, self.ip3, self.ip4 = ip1, ip2, ip3, ip4
+        ipv4.ID += 1
+        self.ID = ipv4.ID
+        self.status = 0
         """
-        Receieve pong from replay package
-        :param sock: socket.socket for TCP connection
-        :param ID: int for identify, should be globally self-increment
-        :param timeout: second for timeout
-        :return: delay in ms, 0 if failed
+        -1: force quit due to uncaught exception or similar
+        0: prepare
+        1: be requested
+        2: sent and put in reciever queue
+        3: recieved
+        4: No response and retrying
+        5. No response after timeout
         """
-        delay = 0
-        time_remaining = timeout
-        while True:
-            start_time = time.time()
-            readable = select.select([sock], [], [], time_remaining)
-            time_spent = (time.time() - start_time)
-            if readable[0] == []:  # Timeout
-                return 0  # failed
 
-            recv_packet, addr = await sock.recvfrom(1024)
+    def task(self): 
+        self.status = 1
+        return self.ip, self.ID
+    def sent(self):
+        """
+        update status to sent
+        :return: None
+        """
+        self.status = 2
+        spawn(timeout_after(2, coro=None))
 
-            time_received = time.time()
-            icmp_header = recv_packet[20:28]
-            type, code, checksum, packet_ID, sequence = struct.unpack(
-                "bbHHh", icmp_header
-            )
 
-            # todo: 这种方法在高并发的情况下会崩溃, 建议重写
-            if packet_ID == ID:  # wtf is this
-                bytes_In_double = struct.calcsize("d")
-                time_sent = struct.unpack("d", recv_packet[28:28 + bytes_In_double])[0]
-                return time_received - time_sent
 
-            time_remaining = time_remaining - time_spent
-            if time_remaining <= 0:
-                return 0
 
-async def main():
-    obj = worker()
-    await obj.close_socket()
+def order():
+    pass
+
+
+class ipv4_group256:
+    def __init__(self):
+        self.task_list = [None for _ in range(256)]
+    async def create_task_group(self, ip1, ip2, ip3):
+        async with curio.TaskGroup() as g:
+            for i in range(256):
+                t = await g.spawn()
+                self.task_list[i] = t
+                print(t.id)
 
 
 if __name__ == '__main__':
-    run(main(), with_monitor=True)
+    p = producer()
+    curio.run(p.send_package(hostname="47.95.223.74",ID=0,sock=socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname("icmp"))))
+
