@@ -58,7 +58,7 @@ class pingblock_256:
         t.start()
         t.join()
         print("finish")
-        # todo: dump json to file by ip1, ip2, ip3 and self.ip_list
+        # ignoretodo dump json to file by ip1, ip2, ip3 and self.ip_list
 
 
 

@@ -7,8 +7,6 @@ import sys
 import time
 import logging
 
-# 异步进程部分需要
-# todo: 研究这些包都是用来干什么的？
 import uuid
 
 from curio import run, spawn
@@ -166,7 +164,7 @@ class worker:
                 "bbHHh", icmp_header
             )
 
-            # todo: 这种方法在高并发的情况下会崩溃
+            # todo: 这种方法在高并发的情况下会崩溃, 建议重写
             if packet_ID == ID:  # wtf is this
                 bytes_In_double = struct.calcsize("d")
                 time_sent = struct.unpack("d", recv_packet[28:28 + bytes_In_double])[0]
