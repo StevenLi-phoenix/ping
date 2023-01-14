@@ -1,3 +1,4 @@
+import select
 import struct
 
 import curio
@@ -5,6 +6,9 @@ from curio import spawn, timeout_after
 import curio.socket as socket
 import logging
 import sys
+
+from tqdm import tqdm
+
 import c
 import time
 import os.path as osp
@@ -17,7 +21,7 @@ def file(filename):
     return filename
 
 
-def create_logger(stream=sys.stdout, level=logging.INFO, filename=f"log/{__name__}.log") -> logging.Logger:
+def create_logger(stream=sys.stdout, level=logging.DEBUG, filename=f"log/{__name__}.log") -> logging.Logger:
     log = logging.getLogger("")
     formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
 
@@ -64,6 +68,13 @@ def do_checksum(source_string):
 
 
 log = create_logger(level=c.LEVEL, filename=osp.join(c.LogDirectionary, "%s.log" % __name__))
+# todo: 使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
+# 请注意，所有诊断日志记录都是同步的。因此，所有日志操作可能会暂时阻塞事件循环——尤其是当日志输
+# 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
+# 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
+
+# log.critical("test")
+# log.debug("test")
 
 # channel
 # sended package hash map remain for consumer
@@ -71,22 +82,23 @@ hash_consumer = {}
 
 sender_queue = curio.Queue()
 
+
 class producer:
     Producer_ID = 0
+
     def __init__(self):
         producer.Producer_ID += 1
         self.ID = producer.Producer_ID
-        self.socket = self.create_socket(self.ID)
+        self.socket = self.create_socket()
         self.working = False
-
 
         curio.run_in_thread(self.worker)
 
-    async def send_package(self, hostname:str, ID:int, sock:socket.socket=None):
+    async def send_package(self, hostname: str, ID: int, sock: socket.socket = None):
         """
         Send ping to target host
-        :param sock: socket for sending ipv4
-        :param hostname: ipv4 address or hostname
+        :param sock: socket for sending ipv4_obj
+        :param hostname: ipv4_obj address or hostname
         :param ID: UUID for host
         :return: Sender task instance
         """
@@ -114,7 +126,7 @@ class producer:
         t = await spawn(sock.sendto, packet, (target_addr, 1))
         return t
 
-    async def create_socket(self, ID) -> socket.socket:
+    async def create_socket(self) -> socket.socket:
         """
         create a socket
         :param ID: threadID
@@ -137,21 +149,75 @@ class producer:
         while self.working:
             ipv4 = await sender_queue.get()
             ipv4addr, ID = ipv4.task()
-            hash_consumer[ID] = await spawn(self.send_package, ipv4addr, ID)
+            await spawn(self.send_package, ipv4addr, ID)
             await sender_queue.task_done()
-
+            ipv4.sent()
+        log.debug("Producer %s: terminated")
 
     def worker_terminate(self):
         self.working = False
 
-class ipv4(object):
+
+class consumer:
+    Consumer_ID = 0
+
+    def __init__(self):
+        consumer.Consumer_ID += 1
+        self.ID = consumer.Consumer_ID
+        self.working = False
+        self.sock = self.create_socket()
+        curio.run_in_thread(self.worker)
+
+    def worker_terminate(self):
+        self.working = False
+
+    async def create_socket(self) -> socket.socket:
+        """
+        create a socket
+        :param ID: threadID
+        :return: socket
+        """
+        icmp = socket.getprotobyname("icmp")
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
+            return sock
+        except socket.error as e:
+            if e.errno == 1:
+                # root privilliage needed
+                e.msg += "ICMP messages can only be sent from root user processes"
+                raise socket.error(e.msg)
+        except Exception as e:
+            print("Exception: %s" % e)
+
+    async def worker(self):
+        while self.working:
+            recv_packet, addr = await self.sock.recvfrom(256)
+            time_recieve = time.time()
+            icmp_header = recv_packet[20:28]
+            type, code, checksum, packet_ID, sequence = struct.unpack(
+                "bbHHh", icmp_header
+            )
+            if packet_ID in hash_consumer.keys():
+                bytes_In_double = struct.calcsize("d")
+                time_sent = struct.unpack("d", recv_packet[28:28 + bytes_In_double])[0]
+                ipv4 = hash_consumer[packet_ID]
+                ipv4.recieved(time_recieve - time_sent)
+                del hash_consumer[packet_ID]
+        log.debug("Consumer %s: terminated")
+
+
+class ipv4_obj(object):
     ID = 0
+
     def __init__(self, ip1, ip2, ip3, ip4):
         self.ip = "%s.%s.%s.%s" % (ip1, ip2, ip3, ip4)
         self.ip1, self.ip2, self.ip3, self.ip4 = ip1, ip2, ip3, ip4
-        ipv4.ID += 1
-        self.ID = ipv4.ID
+        ipv4_obj.ID += 1
+        self.UUID = ipv4_obj.ID
         self.status = 0
+        self.delay = 0
+        self.condition = False
+        log.info("[create]%s@%s" % (self.ip, self.UUID))
         """
         -1: force quit due to uncaught exception or similar
         0: prepare
@@ -162,36 +228,71 @@ class ipv4(object):
         5. No response after timeout
         """
 
-    def task(self): 
+    def task(self):
+        log.debug("[%s@%s] [requ]: %s -> 1" % (self.ip, self.UUID, self.status))
         self.status = 1
-        return self.ip, self.ID
+        return self.ip, self.UUID
+
     def sent(self):
         """
         update status to sent
         :return: None
         """
+        log.debug("[%s@%s] [sent] : %s -> 2" % (self.ip, self.UUID, self.status))
         self.status = 2
-        spawn(timeout_after(2, coro=None))
+
+    def recieved(self, delay):
+        log.debug("[%s@%s] [recv]: %s -> 3" % (self.ip, self.UUID, self.status))
+        self.delay = delay
+        self.status = 3
+        self.condition = True
+
+    def no_response(self, retry=False):
+        log.debug("[%s@%s] [nrep]: %s -> 3" % (self.ip, self.UUID, self.status))
+        if retry:
+            self.status = 4
+        else:
+            self.status = 5
+            self.condition = True
+            raise TimeoutError
+
+    def condition_recieve(self):
+        return self.condition
 
 
+async def ipv4_order_line(ip1, ip2, ip3, ip4):
+    cv = curio.Condition()
+    ipv4 = ipv4_obj(ip1, ip2, ip3, ip4)
+    await sender_queue.put(ipv4)
+    hash_consumer[ipv4.UUID] = ipv4
+    await cv.acquire()
+    for i in range(c.RETRY_TIMES):
+        try:
+            await timeout_after(c.RETRY_TIMEOUT, cv.wait_for, ipv4.condition_recieve)
+            return ipv4.delay
+        except curio.TaskTimeout as e:
+            log.debug("%s" % e)
+    await cv.release()
 
-
-def order():
-    pass
 
 
 class ipv4_group256:
-    def __init__(self):
+    def __init__(self, ip1, ip2, ip3):
         self.task_list = [None for _ in range(256)]
+        curio.run(self.create_task_group(ip1, ip2, ip3))
+
     async def create_task_group(self, ip1, ip2, ip3):
         async with curio.TaskGroup() as g:
-            for i in range(256):
-                t = await g.spawn()
+            for i in range(15,16):
+                assert 0 <= i < 256
+                t = await g.spawn(ipv4_order_line, ip1, ip2, ip3, i)
                 self.task_list[i] = t
-                print(t.id)
+        print('Results:', g.results)
+
 
 
 if __name__ == '__main__':
-    p = producer()
-    curio.run(p.send_package(hostname="47.95.223.74",ID=0,sock=socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.getprotobyname("icmp"))))
+    # for ip in tqdm(range(256*256*256)):
+    # 172.20.10
+    ipv4_group1 = ipv4_group256(172, 20, 10)
 
