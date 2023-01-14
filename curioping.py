@@ -291,10 +291,7 @@ class ipv4_group256:
         print('Results:', g.results)
 
 
-
-
-
-class asynclogger(logging.getLoggerClass()):
+class asynclogger(logging.getLoggerClass):
     queue = curio.Queue()
     CRITICAL = 50
     FATAL = CRITICAL
@@ -308,7 +305,6 @@ class asynclogger(logging.getLoggerClass()):
     def __init__(self):
         self.t = threading.Thread(target=self.handleRecord)
         self.t.start()
-
 
     def Record(self, level, msg, **kwargs):
         org = {
@@ -345,7 +341,6 @@ class asynclogger(logging.getLoggerClass()):
 
     def handleRecord(self):
         log.handle()
-
 
 
 if __name__ == '__main__':
