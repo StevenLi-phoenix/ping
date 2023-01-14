@@ -1,5 +1,6 @@
 import select
 import struct
+import threading
 
 import curio
 from curio import spawn, timeout_after
@@ -21,12 +22,12 @@ def file(filename):
     return filename
 
 
-def create_logger(stream=sys.stdout, level=logging.DEBUG, filename=f"log/{__name__}.log") -> logging.Logger:
+def create_logger(stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log") -> logging.Logger:
     log = logging.getLogger("")
     formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
 
     # set up logging to console
-    console_handler = logging.StreamHandler(stream=stream)
+    console_handler = logging.StreamHandler()
     console_handler.setLevel(level=level)
     console_handler.setFormatter(formatter)
     log.addHandler(console_handler)
@@ -149,6 +150,7 @@ class producer:
         while self.working:
             ipv4 = await sender_queue.get()
             ipv4addr, ID = ipv4.task()
+            log.warning("Start working on %s@%s" % (ipv4addr, ID))
             await spawn(self.send_package, ipv4addr, ID)
             await sender_queue.task_done()
             ipv4.sent()
@@ -275,7 +277,6 @@ async def ipv4_order_line(ip1, ip2, ip3, ip4):
     await cv.release()
 
 
-
 class ipv4_group256:
     def __init__(self, ip1, ip2, ip3):
         self.task_list = [None for _ in range(256)]
@@ -283,7 +284,7 @@ class ipv4_group256:
 
     async def create_task_group(self, ip1, ip2, ip3):
         async with curio.TaskGroup() as g:
-            for i in range(15,16):
+            for i in range(15, 16):
                 assert 0 <= i < 256
                 t = await g.spawn(ipv4_order_line, ip1, ip2, ip3, i)
                 self.task_list[i] = t
@@ -291,8 +292,63 @@ class ipv4_group256:
 
 
 
+
+
+class asynclogger(logging.getLoggerClass()):
+    queue = curio.Queue()
+    CRITICAL = 50
+    FATAL = CRITICAL
+    ERROR = 40
+    WARNING = 30
+    WARN = WARNING
+    INFO = 20
+    DEBUG = 10
+    NOTSET = 0
+
+    def __init__(self):
+        self.t = threading.Thread(target=self.handleRecord)
+        self.t.start()
+
+
+    def Record(self, level, msg, **kwargs):
+        org = {
+            "levelno": level,
+            "msg": msg,
+        }
+        org.update(dict(**kwargs))
+        asynclogger.queue.put(logging.makeLogRecord(org))
+
+    def debug(self, msg, **kwargs):
+        level = 10
+        if self.isEnabledFor(asynclogger.DEBUG):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def info(self, msg, **kwargs):
+        level = 20
+        if self.isEnabledFor(asynclogger.INFO):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def warning(self, msg, **kwargs):
+        level = 30
+        if self.isEnabledFor(asynclogger.WARNING):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def error(self, msg, **kwargs):
+        level = 40
+        if self.isEnabledFor(asynclogger.ERROR):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def critical(self, msg, **kwargs):
+        level = 50
+        if self.isEnabledFor(asynclogger.ERROR):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def handleRecord(self):
+        log.handle()
+
+
+
 if __name__ == '__main__':
     # for ip in tqdm(range(256*256*256)):
     # 172.20.10
     ipv4_group1 = ipv4_group256(172, 20, 10)
-
