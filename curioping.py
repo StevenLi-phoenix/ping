@@ -9,7 +9,7 @@ import logging
 import sys
 
 from tqdm import tqdm
-
+import queue
 import c
 import time
 import os.path as osp
@@ -22,25 +22,87 @@ def file(filename):
     return filename
 
 
-def create_logger(stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log") -> logging.Logger:
-    log = logging.getLogger("")
-    formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
+class asynclogger(logging.Logger):
+    queue = queue.SimpleQueue()
+    CRITICAL = 50
+    FATAL = CRITICAL
+    ERROR = 40
+    WARNING = 30
+    WARN = WARNING
+    INFO = 20
+    DEBUG = 10
+    NOTSET = 0
 
-    # set up logging to console
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level=level)
-    console_handler.setFormatter(formatter)
-    log.addHandler(console_handler)
+    def __init__(self, name: str, stream=sys.stdout, level=c.LEVEL, asyncStatus=True):
+        super().__init__(name, level)
+        self.create_logger(stream=stream, level=level, filename=f"log/{name}.log", asyncStatus=asyncStatus)
+        self.name = name
+        self.working = True
+        self.t = threading.Thread(target=self.handleRecord)
+        self.t.start()
 
-    # set up logging to file
-    file_handler = logging.FileHandler(filename=file(filename))
-    file_handler.setLevel(level=level)
-    file_handler.setFormatter(formatter)
-    log.addHandler(file_handler)
+    def stop(self):
+        self.working = False
+        self.debug("Exit")
+        self.t.join(timeout=1)
 
-    log.debug(platform.uname())
+    def Record(self, level, msg, **kwargs):
+        org = {
+            "levelno": level,
+            "msg": msg,
+        }
+        org.update(dict(**kwargs))
+        asynclogger.queue.put(logging.makeLogRecord(org))
 
-    return log
+    def debug(self, msg, **kwargs):
+        level = 10
+        if self.isEnabledFor(asynclogger.DEBUG):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def info(self, msg, **kwargs):
+        level = 20
+        if self.isEnabledFor(asynclogger.INFO):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def warning(self, msg, **kwargs):
+        level = 30
+        if self.isEnabledFor(asynclogger.WARNING):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def error(self, msg, **kwargs):
+        level = 40
+        if self.isEnabledFor(asynclogger.ERROR):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def critical(self, msg, **kwargs):
+        level = 50
+        if self.isEnabledFor(asynclogger.CRITICAL):
+            self.Record(level=level, msg=msg, **kwargs)
+
+    def handleRecord(self):
+        while self.working:
+            self.log.handle(asynclogger.queue.get())
+
+    def create_logger(self, stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log",
+                      asyncStatus=True) -> logging.Logger:
+        self.log = logging.getLogger(self.name)
+        formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
+
+        # set up logging to console
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level=level)
+        console_handler.setFormatter(formatter)
+        self.log.addHandler(console_handler)
+
+        # set up logging to file
+        file_handler = logging.FileHandler(filename=file(filename))
+        file_handler.setLevel(level=level)
+        file_handler.setFormatter(formatter)
+        self.log.addHandler(file_handler)
+
+        self.log.debug(platform.uname())
+
+        return self.log
 
 
 def do_checksum(source_string):
@@ -68,7 +130,7 @@ def do_checksum(source_string):
     return answer
 
 
-log = create_logger(level=c.LEVEL, filename=osp.join(c.LogDirectionary, "%s.log" % __name__))
+log = asynclogger(level=30, name="ping")
 # todo: 使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
 # 请注意，所有诊断日志记录都是同步的。因此，所有日志操作可能会暂时阻塞事件循环——尤其是当日志输
 # 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
@@ -291,59 +353,8 @@ class ipv4_group256:
         print('Results:', g.results)
 
 
-class asynclogger(logging.getLoggerClass):
-    queue = curio.Queue()
-    CRITICAL = 50
-    FATAL = CRITICAL
-    ERROR = 40
-    WARNING = 30
-    WARN = WARNING
-    INFO = 20
-    DEBUG = 10
-    NOTSET = 0
-
-    def __init__(self):
-        self.t = threading.Thread(target=self.handleRecord)
-        self.t.start()
-
-    def Record(self, level, msg, **kwargs):
-        org = {
-            "levelno": level,
-            "msg": msg,
-        }
-        org.update(dict(**kwargs))
-        asynclogger.queue.put(logging.makeLogRecord(org))
-
-    def debug(self, msg, **kwargs):
-        level = 10
-        if self.isEnabledFor(asynclogger.DEBUG):
-            self.Record(level=level, msg=msg, **kwargs)
-
-    def info(self, msg, **kwargs):
-        level = 20
-        if self.isEnabledFor(asynclogger.INFO):
-            self.Record(level=level, msg=msg, **kwargs)
-
-    def warning(self, msg, **kwargs):
-        level = 30
-        if self.isEnabledFor(asynclogger.WARNING):
-            self.Record(level=level, msg=msg, **kwargs)
-
-    def error(self, msg, **kwargs):
-        level = 40
-        if self.isEnabledFor(asynclogger.ERROR):
-            self.Record(level=level, msg=msg, **kwargs)
-
-    def critical(self, msg, **kwargs):
-        level = 50
-        if self.isEnabledFor(asynclogger.ERROR):
-            self.Record(level=level, msg=msg, **kwargs)
-
-    def handleRecord(self):
-        log.handle()
-
-
 if __name__ == '__main__':
     # for ip in tqdm(range(256*256*256)):
     # 172.20.10
     ipv4_group1 = ipv4_group256(172, 20, 10)
+    log.stop()
