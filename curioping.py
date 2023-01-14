@@ -33,9 +33,9 @@ class asynclogger(logging.Logger):
     DEBUG = 10
     NOTSET = 0
 
-    def __init__(self, name: str, stream=sys.stdout, level=c.LEVEL, asyncStatus=True):
+    def __init__(self, name: str, stream=sys.stdout, level=c.LEVEL):
         super().__init__(name, level)
-        self.create_logger(stream=stream, level=level, filename=f"log/{name}.log", asyncStatus=asyncStatus)
+        self.create_logger(stream=stream, level=level, filename=f"log/{name}.log")
         self.name = name
         self.working = True
         self.t = threading.Thread(target=self.handleRecord)
@@ -44,7 +44,6 @@ class asynclogger(logging.Logger):
     def stop(self):
         self.working = False
         self.debug("Exit")
-        self.t.join(timeout=1)
 
     def Record(self, level, msg, **kwargs):
         org = {
