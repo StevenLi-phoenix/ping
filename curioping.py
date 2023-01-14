@@ -83,8 +83,7 @@ class asynclogger(logging.Logger):
         while self.working:
             self.log.handle(asynclogger.queue.get())
 
-    def create_logger(self, stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log",
-                      asyncStatus=True) -> logging.Logger:
+    def create_logger(self, stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log") -> logging.Logger:
         self.log = logging.getLogger(self.name)
         formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
 
@@ -136,8 +135,8 @@ log = asynclogger(level=30, name="ping")
 # 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
 # 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
 
-# log.critical("test")
-# log.debug("test")
+log.critical("test")
+log.debug("test")
 
 # channel
 # sended package hash map remain for consumer
