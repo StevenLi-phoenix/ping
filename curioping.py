@@ -1,11 +1,12 @@
 import select
-# todo: why use select?
+# todo: why use select? No idea
 import struct
 
 import curio
 from curio import spawn, timeout_after
 import curio.socket as socket
 import logging
+import logging.handlers
 import sys
 
 from curio.debug import schedtrace
@@ -25,7 +26,7 @@ def file(filename):
     return filename
 
 
-def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"log/{__name__}.log") -> logging.Logger:
+def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"log/{__name__}.log", buffer = 1024) -> logging.Logger:
     log = logging.getLogger(name)
     log.setLevel(level)
     formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
@@ -40,7 +41,8 @@ def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"
     file_handler = logging.FileHandler(filename=file(filename))
     file_handler.setLevel(level)
     file_handler.setFormatter(formatter)
-    log.addHandler(file_handler)
+    memoryhandler = logging.handlers.MemoryHandler(buffer, level, file_handler, flushOnClose=True)
+    log.addHandler(memoryhandler)
 
     log.debug(platform.uname())
 
@@ -48,6 +50,7 @@ def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"
 
 
 def do_checksum(source_string):
+    print("Checksum")
     """  Verify the packet integritity """
     log.info("calculate %s checksum" % source_string)
     sum = 0
@@ -72,17 +75,21 @@ def do_checksum(source_string):
     return answer
 
 
+def test_log():
+    log.critical("test")
+    log.error("test")
+    log.warning("test")
+    log.info("test")
+    log.debug("test")
+
+
 log = create_default_logger(level=c.LEVEL, name="")
 # todo: 使用模块中的 QueueHandler 和 QueueListener 对象logging将日志处理卸载到单独的线程
 # 请注意，所有诊断日志记录都是同步的。因此，所有日志操作可能会暂时阻塞事件循环——尤其是当日志输
 # 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
 # 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
+test_log()
 
-log.critical("test")
-log.error("test")
-log.warning("test")
-log.info("test")
-log.debug("test")
 
 # channel
 # sended package hash map remain for consumer
@@ -257,7 +264,7 @@ class ipv4_obj(object):
         self.condition = True
 
     def no_response(self, retry=False):
-        log.info("[%s@%s] [nrep]: %s -> 3" % (self.ip, self.UUID, self.status))
+        log.info("[%s@%s] [nors]: %s -> 3" % (self.ip, self.UUID, self.status))
         if retry:
             self.status = 4
         else:
@@ -280,7 +287,7 @@ async def ipv4_order_line(ip1, ip2, ip3, ip4):
             await timeout_after(c.RETRY_TIMEOUT, cv.wait_for, ipv4.condition_recieve)
             return ipv4.delay
         except curio.TaskTimeout as e:
-            log.info("%s" % e)
+            log.error("%s" % e)
     await cv.release()
 
 
