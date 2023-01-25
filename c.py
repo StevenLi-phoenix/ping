@@ -1,5 +1,3 @@
-import logging
-
 ICMP_ECHO_REQUEST = 8
 LEVEL = 0
 LogDirectionary = "./log"
