@@ -1,3 +1,4 @@
+import random
 import select
 # todo: why use select? No idea
 import struct
@@ -26,7 +27,8 @@ def file(filename):
     return filename
 
 
-def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"log/{__name__}.log", buffer = 1024) -> logging.Logger:
+def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"log/{__name__}.log",
+                          buffer=1024) -> logging.Logger:
     log = logging.getLogger(name)
     log.setLevel(level)
     formatter = logging.Formatter('[%(asctime)s][%(levelname)s]: %(message)s')
@@ -90,7 +92,6 @@ log = create_default_logger(level=c.LEVEL, name="")
 # 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
 test_log()
 
-
 # channel
 # sended package hash map remain for consumer
 hash_consumer = {}
@@ -106,6 +107,7 @@ class producer:
         self.ID = producer.Producer_ID
         self.socket = self.create_socket()
         self.working = False
+        self.exitLock = False
 
         curio.run_in_thread(self.worker)
 
@@ -141,7 +143,7 @@ class producer:
         t = await spawn(sock.sendto, packet, (target_addr, 1))
         return t
 
-    async def create_socket(self) -> socket.socket:
+    def create_socket(self) -> socket.socket:
         """
         create a socket
         :param ID: threadID
@@ -169,9 +171,11 @@ class producer:
             await sender_queue.task_done()
             ipv4.sent()
         log.info("Producer %s: terminated")
+        self.exitLock = True
 
     def worker_terminate(self):
         self.working = False
+
 
 
 class consumer:
@@ -181,13 +185,14 @@ class consumer:
         consumer.Consumer_ID += 1
         self.ID = consumer.Consumer_ID
         self.working = False
+        self.exitLock = False
         self.sock = self.create_socket()
         curio.run_in_thread(self.worker)
 
     def worker_terminate(self):
         self.working = False
 
-    async def create_socket(self) -> socket.socket:
+    def create_socket(self) -> socket.socket:
         """
         create a socket
         :param ID: threadID
@@ -206,6 +211,7 @@ class consumer:
             print("Exception: %s" % e)
 
     async def worker(self):
+        self.working = True
         while self.working:
             recv_packet, addr = await self.sock.recvfrom(256)
             time_recieve = time.time()
@@ -220,6 +226,7 @@ class consumer:
                 ipv4.recieved(time_recieve - time_sent)
                 del hash_consumer[packet_ID]
         log.info("Consumer %s: terminated")
+        self.exitLock = True
 
 
 class ipv4_obj(object):
@@ -287,7 +294,7 @@ async def ipv4_order_line(ip1, ip2, ip3, ip4):
             await timeout_after(c.RETRY_TIMEOUT, cv.wait_for, ipv4.condition_recieve)
             return ipv4.delay
         except curio.TaskTimeout as e:
-            log.error("%s" % e)
+            log.error(f"TASK timeout(%ss) at {i} attempts" % e)
     await cv.release()
 
 
@@ -305,8 +312,49 @@ class ipv4_group256:
         print('Results:', g.results)
 
 
+class worker_manager:
+    working_flag = True
+
+    async def create_pool(self, size=16):
+        cv = curio.Condition()
+        while worker_manager.working_flag:
+            producer_count = size // 2
+            consumer_count = size - producer_count
+            producer_list = [producer() for i in range(producer_count)]
+            consumer_list = [consumer() for i in range(consumer_count)]
+            await curio.sleep(2)
+            await cv.acquire()
+            if len(hash_consumer) > 0:
+                t = random.choice(producer_list)
+                t.worker_terminate()
+                await cv.wait_for(t.exitLock)
+                consumer_list.append(consumer())
+            else:
+                t = random.choice(consumer_list)
+                t.worker_terminate()
+                await cv.wait_for(t.exitLock)
+                producer_list.append(producer())
+            await cv.release()
+        log.info("Worker pool exit")
+        return time.time()
+
+
+worker = worker_manager()
+
+def worker_terminate():
+    worker.working_flag = False
+
+async def worker_start(size=16):
+    await worker.create_pool(size)
+
+async def main():
+
+    await worker_start()
+    await ipv4_group256().init(192, 168, 1)
+
+
 if __name__ == '__main__':
     # for ip in tqdm(range(256*256*256)):
     # 172.20.10.*
-    curio.run(ipv4_group256().init, 192, 168, 1)
+    curio.run(main)
     # ipv4_group1 = ipv4_group256(172, 20, 10)
