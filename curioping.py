@@ -106,12 +106,14 @@ sender_queue = curio.Queue()
 class producer:
     Producer_ID = 0
 
-    async def init(self):
+    def __init__(self):
         producer.Producer_ID += 1
         self.ID = producer.Producer_ID
         self.socket = self.create_socket()
         self.working = False
         self.exitLock = False
+
+    async def init(self):
         await curio.run_in_thread(self.worker, call_on_cancel=self.worker_terminate)
         return self
 
@@ -187,12 +189,14 @@ class producer:
 class consumer:
     Consumer_ID = 0
 
-    async def init(self):
+    def __init__(self):
         consumer.Consumer_ID += 1
         self.ID = consumer.Consumer_ID
         self.working = False
         self.exitLock = False
         self.sock = self.create_socket()
+
+    async def init(self):
         await curio.run_in_thread(self.worker, call_on_cancel=self.worker_terminate)
         return self
 
@@ -337,6 +341,8 @@ class worker_manager:
             for c in consumer_list:
                 await c.init()
             await curio.sleep(2)
+            worker_manager.working_flag = False
+            continue
             await cv.acquire()
             if len(hash_consumer) > 0:
                 log.info(
@@ -368,13 +374,17 @@ async def worker_start(size=16):
     await worker.create_pool(size)
 
 
-async def main():
+async def main_start():
     await worker_start()
     await ipv4_group256().init(192, 168, 1)
+
+
+def main():
+    curio.run(main_start)
 
 
 if __name__ == '__main__':
     # for ip in tqdm(range(256*256*256)):
     # 172.20.10.*
-    curio.run(main)
+    main()
     # ipv4_group1 = ipv4_group256(172, 20, 10)
