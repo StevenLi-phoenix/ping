@@ -2,6 +2,7 @@ import random
 import select
 # todo: why use select? No idea
 import struct
+import threading
 
 import curio
 from curio import spawn, timeout_after
@@ -77,6 +78,14 @@ def do_checksum(source_string):
     return answer
 
 
+log = create_default_logger(level=c.LEVEL, name="")
+
+
+# todo: 使用模块中的 QueueHandler 和 QueueListener 对象logging将日志处理卸载到单独的线程
+# 请注意，所有诊断日志记录都是同步的。因此，所有日志操作可能会暂时阻塞事件循环——尤其是当日志输
+# 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
+# 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
+
 def test_log():
     log.critical("test")
     log.error("test")
@@ -85,12 +94,7 @@ def test_log():
     log.debug("test")
 
 
-log = create_default_logger(level=c.LEVEL, name="")
-# todo: 使用模块中的 QueueHandler 和 QueueListener 对象logging将日志处理卸载到单独的线程
-# 请注意，所有诊断日志记录都是同步的。因此，所有日志操作可能会暂时阻塞事件循环——尤其是当日志输
-# 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
-# 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
-test_log()
+# test_log()
 
 # channel
 # sended package hash map remain for consumer
@@ -102,14 +106,14 @@ sender_queue = curio.Queue()
 class producer:
     Producer_ID = 0
 
-    def __init__(self):
+    async def init(self):
         producer.Producer_ID += 1
         self.ID = producer.Producer_ID
         self.socket = self.create_socket()
         self.working = False
         self.exitLock = False
-
-        curio.run_in_thread(self.worker)
+        await curio.run_in_thread(self.worker, call_on_cancel=self.worker_terminate)
+        return self
 
     async def send_package(self, hostname: str, ID: int, sock: socket.socket = None):
         """
@@ -176,18 +180,21 @@ class producer:
     def worker_terminate(self):
         self.working = False
 
+    def getExitLock(self):
+        return self.exitLock
 
 
 class consumer:
     Consumer_ID = 0
 
-    def __init__(self):
+    async def init(self):
         consumer.Consumer_ID += 1
         self.ID = consumer.Consumer_ID
         self.working = False
         self.exitLock = False
         self.sock = self.create_socket()
-        curio.run_in_thread(self.worker)
+        await curio.run_in_thread(self.worker, call_on_cancel=self.worker_terminate)
+        return self
 
     def worker_terminate(self):
         self.working = False
@@ -227,6 +234,9 @@ class consumer:
                 del hash_consumer[packet_ID]
         log.info("Consumer %s: terminated")
         self.exitLock = True
+
+    def getExitLock(self):
+        return self.exitLock
 
 
 class ipv4_obj(object):
@@ -320,19 +330,27 @@ class worker_manager:
         while worker_manager.working_flag:
             producer_count = size // 2
             consumer_count = size - producer_count
-            producer_list = [producer() for i in range(producer_count)]
-            consumer_list = [consumer() for i in range(consumer_count)]
+            producer_list = [producer() for _ in range(producer_count)]
+            consumer_list = [consumer() for _ in range(consumer_count)]
+            for p in producer_list:
+                await p.init()
+            for c in consumer_list:
+                await c.init()
             await curio.sleep(2)
             await cv.acquire()
             if len(hash_consumer) > 0:
+                log.info(
+                    f"Add consumer, producer:{len(producer_list)} -> {len(producer_list) - 1}, consumer:{len(consumer_list)} -> {len(consumer_list) + 1}")
                 t = random.choice(producer_list)
                 t.worker_terminate()
-                await cv.wait_for(t.exitLock)
+                await cv.wait_for(t.getExitLock)
                 consumer_list.append(consumer())
             else:
+                log.info(
+                    f"Add consumer, producer:{len(producer_list)} -> {len(producer_list) + 1}, consumer:{len(consumer_list)} -> {len(consumer_list) - 1}")
                 t = random.choice(consumer_list)
                 t.worker_terminate()
-                await cv.wait_for(t.exitLock)
+                await cv.wait_for(t.getExitLock)
                 producer_list.append(producer())
             await cv.release()
         log.info("Worker pool exit")
@@ -341,14 +359,16 @@ class worker_manager:
 
 worker = worker_manager()
 
+
 def worker_terminate():
     worker.working_flag = False
+
 
 async def worker_start(size=16):
     await worker.create_pool(size)
 
-async def main():
 
+async def main():
     await worker_start()
     await ipv4_group256().init(192, 168, 1)
 
