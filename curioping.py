@@ -1,5 +1,7 @@
 import random
+import time
 
+import curio
 from curio import timeout_after
 
 from worker import *
@@ -7,18 +9,14 @@ from logger import *
 
 # todo: 增加pygame作为UI 或者 自己写一个终端的UI
 # todo: 确保 producer 大于一个
-
-
-log = create_default_logger(level=c.LEVEL, name="")
-
-
 # todo: 使用模块中的 QueueHandler 和 QueueListener 对象logging将日志处理卸载到单独的线程
 # 请注意，所有诊断日志记录都是同步的。因此，所有日志操作可能会暂时阻塞事件循环——尤其是当日志输
 # 出涉及文件 I/O 或网络操作时。如果这是一个问题，您应该采取措施在日志记录配置中减轻它。例如，您
 # 可以使用模块中的QueueHandler和 QueueListener对象logging将日志处理卸载到单独的线程
 
-# channel
-# sended package hash map remain for consumer
+
+log = create_default_logger(level=c.LEVEL, name="")
+
 
 class ipv4_obj(object):
     ID = 0
@@ -96,7 +94,7 @@ class ipv4_group256:
 
     async def create_task_group(self, ip1, ip2, ip3):
         async with curio.TaskGroup() as g:
-            for i in range(0, 16):
+            for i in range(0, 256):
                 assert 0 <= i < 256
                 t = await g.spawn(ipv4_order_line, ip1, ip2, ip3, i)
                 self.task_list[i] = t
@@ -107,6 +105,7 @@ class worker_manager:
     working_flag = True
 
     async def create_pool(self, size=16):
+        await self.worker_auto_terminate()
         cv = curio.Condition()
         while worker_manager.working_flag:
             producer_count = size // 2
@@ -117,42 +116,52 @@ class worker_manager:
                 await p.init()
             for c in consumer_list:
                 await c.init()
-            await curio.sleep(2)
-            worker_manager.working_flag = False
-            continue
+            # await curio.sleep(2)
+            # worker_manager.working_flag = False
+            # continue
             await cv.acquire()
-            if len(hash_consumer) > 0:
+            if len(worker.hash_consumer) > 0:
                 log.info(
                     f"Add consumer, producer:{len(producer_list)} -> {len(producer_list) - 1}, consumer:{len(consumer_list)} -> {len(consumer_list) + 1}")
                 t = random.choice(producer_list)
-                t.worker_terminate()
+                t.terminate()
                 await cv.wait_for(t.getExitLock)
                 consumer_list.append(consumer())
             else:
                 log.info(
                     f"Add consumer, producer:{len(producer_list)} -> {len(producer_list) + 1}, consumer:{len(consumer_list)} -> {len(consumer_list) - 1}")
                 t = random.choice(consumer_list)
-                t.worker_terminate()
+                t.terminate()
                 await cv.wait_for(t.getExitLock)
                 producer_list.append(producer())
             await cv.release()
         log.info("Worker pool exit")
         return time.time()
 
+    @staticmethod
+    def worker_terminate(cls):
+        cls.working_flag = False
 
-worker = worker_manager()
+    async def worker_auto_terminate(self, timeout=2, step=1):
+        last_timer = time.time()
+        while True:
+            await curio.sleep(step)
+            timer = time.time() - last_timer
+            if timer > timeout and worker.hash_consumer_empty(worker):  # and worker.sender_queue_empty(worker):
+                break
+            else:
+                last_timer = time.time()
+        worker_manager.worker_terminate(worker_manager)
+        log.info("Worker Manager: Main Exit")
+        exit()
 
 
-def worker_terminate():
-    worker.working_flag = False
-
-
-async def worker_start(size=16):
-    await worker.create_pool(size)
+wm = worker_manager()
 
 
 async def main_start():
-    await worker_start()
+    await wm.create_pool(size=16)
+    # 192.168.1.0 ~ 256
     await ipv4_group256().init(192, 168, 1)
 
 
@@ -161,7 +170,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # for ip in tqdm(range(256*256*256)):
-    # 172.20.10.*
     main()
-    # ipv4_group1 = ipv4_group256(172, 20, 10)

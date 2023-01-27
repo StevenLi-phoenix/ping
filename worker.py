@@ -65,6 +65,14 @@ class worker(object):
     def getExitLock(self):
         return self.exitLock
 
+    @staticmethod
+    def hash_consumer_empty(cls):
+        return not cls.hash_consumer
+
+    @staticmethod
+    def sender_queue_empty(cls):
+        return cls.sender_queue.empty()
+
     def create_socket(self) -> socket.socket:
         """
         create a socket
