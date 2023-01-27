@@ -105,7 +105,7 @@ class worker_manager:
     working_flag = True
 
     async def create_pool(self, size=16):
-        await self.worker_auto_terminate()
+        await curio.run_in_thread(self.worker_auto_terminate)
         cv = curio.Condition()
         while worker_manager.working_flag:
             producer_count = size // 2
@@ -142,10 +142,10 @@ class worker_manager:
     def worker_terminate(cls):
         cls.working_flag = False
 
-    async def worker_auto_terminate(self, timeout=2, step=1):
+    def worker_auto_terminate(self, timeout=2, step=1):
         last_timer = time.time()
         while True:
-            await curio.sleep(step)
+            time.sleep(step)
             timer = time.time() - last_timer
             if timer > timeout and worker.hash_consumer_empty(worker):  # and worker.sender_queue_empty(worker):
                 break
