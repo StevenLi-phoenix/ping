@@ -13,7 +13,7 @@ def file(filename):
     return filename
 
 
-def create_default_logger(stream=sys.stdout, name="", level=c.LEVEL, filename=f"log/{__name__}.log",
+def create_default_logger(name="", stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log",
                           buffer=1024) -> logging.Logger:
     log = logging.getLogger(name)
     log.setLevel(level)
