@@ -1,4 +1,3 @@
-import atexit
 import logging
 import socket
 import queue
@@ -7,8 +6,6 @@ import threading
 import time
 import os.path as osp
 import requests
-
-from tqdm import tqdm
 
 import c
 import logger
@@ -26,7 +23,6 @@ class worker:
         self.log = logging.getLogger("worker")
         self.log.debug(f"Worker {self.id} started")
         self.sock = self.create_socket()
-        self.sock.settimeout(c.RETRY_TIMEOUT)
         self.working = True
 
     @staticmethod
@@ -34,7 +30,6 @@ class worker:
         if ip_end is None:
             ip_end = ip_start + 256
         worker.IPV4_256_block = {i: False for i in range(ip_start, ip_end)}
-
 
     def do_checksum(self, source_string):
         """  Verify the packet integritity """
@@ -104,12 +99,12 @@ class sender(worker):
         super().__init__()
         self.log = logging.getLogger("sender")
 
-    def send_package(self, hostname: str, ID: int = None, content=None, sock: socket.socket = None):
+    def send_package(self, hostname: str, ID: int = None, content=None, sock: socket.socket = None, retries=c.RETRY_TIMES):
         if sock is None:
             sock = self.sock
         if ID is None:
-            ID = self.IPV4_to_BlockID(hostname)
-        self.log.info("Send ICMP -- %s -> %s, worker: %s" % (sock, hostname, self.id))
+            ID = self.IPV4_to_ID(hostname) % 65536
+        self.log.debug("Send ICMP -- %s -> %s, worker: %s" % (sock, hostname, self.id))
         # dummy checksum
         my_checksum = 0
         # Create a dummy heder with a 0 checksum.
@@ -123,17 +118,22 @@ class sender(worker):
             "bbHHh", c.ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
         )
         packet = header + data
-
-        t = sock.sendto(packet, (hostname, 1))
-        return t
+        self.log.debug(f"Start sendto {hostname} with {packet}")
+        try:
+            t = sock.sendto(packet, (hostname, 1))
+        except OSError as e:
+            if retries > 0:
+                self.send_package(hostname=hostname, ID=ID, sock=sock, retries=retries-1)
+            else:
+                log.error(e)
 
     def thread(self):
-        self.log.debug(f"{self.id}: start thread")
+        self.log.info(f"{self.id}: start thread")
         while self.working:
             ipv4Addr = self.sender_queue.get()
-            self.log.info(f"{self.id} Start working on {ipv4Addr}")
+            self.log.debug(f"{self.id} Start working on {ipv4Addr}")
             self.send_package(ipv4Addr)
-            self.log.info(f"Delay on {ipv4Addr}")
+            self.log.debug(f"Delay on {ipv4Addr}")
 
 
 class reciever(worker):
@@ -145,7 +145,7 @@ class reciever(worker):
         icmp_header = recv_packet[20:28]
         type, code, checksum, packet_ID, sequence = struct.unpack("bbHHh", icmp_header)
         if packet_ID in worker.IPV4_256_block.keys():
-            log.info(f"recieved packge {packet_ID}")
+            log.debug(f"recieved packge {packet_ID}")
             worker.IPV4_256_block[packet_ID] = True
 
     def thread(self):
@@ -155,14 +155,14 @@ class reciever(worker):
         self.log.info("Consumer %s: terminated" % self.id)
 
 
-def main():
-    ip1, ip2 = "47", "95"
+def main(ip):
+    ip1, ip2 = ip // 256, ip % 256
     log.info(f"Start group {ip1}-{ip2}")
     s = ""
     # 172.17.134.163
-    for ip3 in range(4):
+    for ip3 in range(256):
         # 65535
-        worker.reset_IPV4_256_block(ip3 * 256 )
+        worker.reset_IPV4_256_block(ip3 * 256 % 65535)
         for i in range(256):
             sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
         while not sender.sender_queue.empty():
@@ -175,12 +175,20 @@ def main():
             else:
                 s += "0"
 
-    with open(logger.file(osp.join(ip1, ip2)), "w+") as f:
+    with open(logger.file(osp.join("ip",ip1, ip2)), "w+") as f:
         f.write(s)
-    print("Exit")
+    return s
+
+
+def get_task(server_addr="http://47.95.223.74:8000/api/ping"):
+    re = requests.get(server_addr)
+    ip = re.json()["index"]
+    s = main(ip)
+    requests.post(server_addr, json={"content": s, "ip": ip})
 
 
 if __name__ == '__main__':
     threading.Thread(target=sender().thread).start()
     threading.Thread(target=reciever().thread).start()
-    main()
+    while True:
+        get_task()
