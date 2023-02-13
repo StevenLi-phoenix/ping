@@ -160,13 +160,17 @@ wm = worker_manager()
 
 
 async def main_start():
+    log.info("create Pool")
     await wm.create_pool(size=16)
     # 192.168.1.0 ~ 256
+    log.info("Init 192.168.1.* ping command with ipv4 group 256")
     await ipv4_group256().init(192, 168, 1)
 
 
 def main():
+    log.info("Main Start")
     curio.run(main_start)
+    log.info("Main Exit")
 
 
 if __name__ == '__main__':

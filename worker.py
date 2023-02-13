@@ -100,7 +100,7 @@ class producer(worker):
         super().__init__()
         self.log.debug("Producer")
 
-    async def send_package(self, hostname: str, ID: int, sock: socket.socket = None):
+    async def send_package(self, hostname: str, ID: int, content = None, sock: socket.socket = None):
         """
         Send ping to target host
         :param sock: socket for sending ipv4_obj
@@ -308,3 +308,23 @@ class consumer(worker):
 #
 #     def getExitLock(self):
 #         return self.exitLock
+
+if __name__ == '__main__':
+    target_addr = socket.gethostbyname("192.168.0.1")
+
+    # dummy checksum
+    my_checksum = 0
+    # Create a dummy heder with a 0 checksum.
+    header = struct.pack("bbHHh", 0, 0, my_checksum, 0, 1)
+    bytes_In_double = struct.calcsize("d")
+    data = "没人理我"
+    data = data + (192 - bytes_In_double - len(data)) * "Q"
+    data = struct.pack("d", time.time()) + bytes(data.encode('utf-8'))
+
+    # Get the checksum on the data and the dummy header.
+    my_checksum = worker().do_checksum(header + data)
+    header = struct.pack(
+        "bbHHh", 0, 0, socket.htons(my_checksum), 0, 1
+    )
+    packet = header + data
+    print(bytes(packet))
