@@ -57,7 +57,7 @@ def get_task():
     for index, status_code in tasks.items():
         if status_code == 0:
             tasks[index] = 1
-            timer = threading.Timer(3600, reset_task_status, [index])
+            timer = threading.Timer(600, reset_task_status, [index])
             timer.start()
             return jsonify({'task_index': index, 'task_status': 1})
     return jsonify({'error': 'No tasks available'})
@@ -102,14 +102,24 @@ def get_latest_task():
 def get_progress():
     total_tasks = len(tasks)
     completed_tasks = list(tasks.values()).count(2)
-    progress = round(completed_tasks / total_tasks * 100, 2) if total_tasks > 0 else 0
-    return jsonify({'progress': progress})
+    progress = round(completed_tasks / total_tasks * 100, 4) if total_tasks > 0 else 0
+    return jsonify({
+        'progress': progress,
+        'done_tasks': completed_tasks,
+        'total_tasks': total_tasks
+    })
 
 
 @app.route('/')
 def index():
     """Display the task status page."""
     return render_template('status.html', tasks=tasks, errors=errors)
+
+
+@app.route('/list')
+def index():
+    """Display the task status page."""
+    return render_template('list.html', tasks=tasks, errors=errors)
 
 
 @app.route('/details/<int:task_id>')

@@ -1,94 +1,196 @@
-import json
-from time import sleep
-import os
-import os.path as osp
-
-import ping
-# import multiprocess
-import threading
+import logging
+import socket
 import queue
+import struct
+import threading
+import time
+import os.path as osp
+import requests
 
-Global_ID = 0
-# q = queue.Queue()
-q_w = queue.Queue()
-queue_list = queue.Queue()
-FLAG_q_alltaskdone = False
+import c
+import logger
+import task_cilent
 
-q_w.not_empty
+log = logger.create_default_logger()
 
-def worker():
-    global Global_ID
+
+class worker:
+    GLOBAL_ID = 0
+    IPV4_256_block = {i: False for i in range(65535)}
+    task = 0
+
+
+    def __init__(self):
+        self.id = worker.GLOBAL_ID
+        worker.GLOBAL_ID += 1
+        self.log = logging.getLogger("worker")
+        self.log.debug(f"Worker {self.id} started")
+        self.sock = self.create_socket()
+        self.working = True
+
+    @staticmethod
+    def reset_IPV4_256_block():
+        worker.IPV4_256_block = {i: False for i in range(65535)}
+
+    def do_checksum(self, source_string):
+        """  Verify the packet integritity """
+        self.log.debug("calculate %s checksum" % source_string)
+        sum = 0
+        max_count = (len(source_string) / 2) * 2
+        count = 0
+        while count < max_count:
+            val = source_string[count + 1] * 256 + source_string[count]
+            sum = sum + val
+            sum = sum & 0xffffffff
+            count = count + 2
+
+        if max_count < len(source_string):
+            sum = sum + ord(source_string[len(source_string) - 1])
+            sum = sum & 0xffffffff
+
+        sum = (sum >> 16) + (sum & 0xffff)
+        sum = sum + (sum >> 16)
+        answer = ~sum
+        answer = answer & 0xffff
+        answer = answer >> 8 | (answer << 8 & 0xff00)
+        self.log.debug("check sum complete -> %s" % answer)
+        return answer
+
+    def create_socket(self) -> socket.socket:
+        """
+        create a socket
+        :param ID: threadID
+        :return: socket
+        """
+        self.log.debug("Create Socket")
+        icmp = socket.getprotobyname("icmp")
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, icmp)
+            return sock
+        except socket.error as e:
+            if e.errno == 1:
+                # root privilliage needed
+                # e.msg += "ICMP messages can only be sent from root user processes"
+                raise socket.error(e)
+        except Exception as e:
+            print("Exception: %s" % e)
+
+    def close_socket(self):
+        self.sock.close()
+
+    def IPV4_to_ID(self, hostname) -> int:
+        ip1, ip2, ip3, ip4 = hostname.split(".")
+        return int(ip1) * 256 ** 3 + int(ip2) * 256 ** 2 + int(ip3) * 256 ** 1 + int(ip4)
+
+    def ID_to_IPV4(self, IPV4ID) -> str:
+        return str(IPV4ID // 256 ** 3 % 256) + "." + str(IPV4ID // 256 ** 2 % 256) + "." + str(
+            IPV4ID // 256 ** 1 % 256) + "." + str(IPV4ID % 256)
+
+    def IPV4_to_BlockID(self, hostname) -> int:
+        return int(hostname.split(".")[3])
+
+    def packageID_to_BlockID(self, packageID: int) -> int:
+        return packageID % 256
+
+
+class sender(worker):
+    sender_queue = queue.SimpleQueue()
+
+    def __init__(self):
+        super().__init__()
+        self.log = logging.getLogger("sender")
+
+    def send_package(self, hostname: str, ID: int = None, content=None, sock: socket.socket = None,
+                     retries=c.RETRY_TIMES):
+        if sock is None:
+            sock = self.sock
+        if ID is None:
+            ID = self.IPV4_to_ID(hostname) % 65536
+        if ID % 256 == 0:
+            self.log.info(f"Sendinig ICMP on {hostname}/8")
+        self.log.debug("Send ICMP -- %s -> %s, worker: %s" % (sock, hostname, self.id))
+        # dummy checksum
+        my_checksum = 0
+        # Create a dummy heder with a 0 checksum.
+        header = struct.pack("bbHHh", c.ICMP_ECHO_REQUEST, 0, my_checksum, ID, 1)
+        data = ""
+        data = struct.pack("d", time.time()) + bytes(data.encode('utf-8'))
+
+        # Get the checksum on the data and the dummy header.
+        my_checksum = self.do_checksum(header + data)
+        header = struct.pack(
+            "bbHHh", c.ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
+        )
+        packet = header + data
+        self.log.debug(f"Start sendto {hostname} with {packet}")
+        try:
+            t = sock.sendto(packet, (hostname, 1))
+        except OSError as e:
+            if retries > 0:
+                self.send_package(hostname=hostname, ID=ID, sock=sock, retries=retries - 1)
+            else:
+                log.debug(e)
+
+    def thread(self):
+        self.log.info(f"{self.id}: start thread")
+        while self.working:
+            ipv4Addr = self.sender_queue.get()
+            self.log.debug(f"{self.id} Start working on {ipv4Addr}")
+            self.send_package(ipv4Addr)
+            self.log.debug(f"Delay on {ipv4Addr}")
+
+
+class reciever(worker):
+    def __init__(self):
+        super().__init__()
+
+    def recieve_package(self):
+        recv_packet, addr = self.sock.recvfrom(256)
+        icmp_header = recv_packet[20:28]
+        type, code, checksum, packet_ID, sequence = struct.unpack("bbHHh", icmp_header)
+        if packet_ID in worker.IPV4_256_block.keys():
+            log.info(f"recieved packge from {self.ID_to_IPV4(packet_ID + worker.task * 65535)} with reciever{self.id}")
+            worker.IPV4_256_block[packet_ID] = True
+
+    def thread(self):
+        self.log.info("Consumer %s: start" % self.id)
+        while self.working:
+            self.recieve_package()
+        self.log.info("Consumer %s: terminated" % self.id)
+
+
+def main(ip):
+    ip1, ip2 = ip // 256, ip % 256
+    worker.task = ip
+    log.info(f"Start group {ip1}-{ip2}")
+    for ip3 in range(256):
+        for i in range(256):
+            sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
+    while not sender.sender_queue.empty():
+        time.sleep(1)
+    time.sleep(1)
+    assert len(worker.IPV4_256_block) == 65535
+    s = ""
+    for i in range(65535):
+        if worker.IPV4_256_block[i]:
+            s += "1"
+        else:
+            s += "0"
+    with open(logger.file(osp.join("ip", str(ip1), str(ip2))), "w+") as f:
+        f.write(s)
+    worker.reset_IPV4_256_block()
+    return s
+
+
+server_url = "http://47.95.223.74:8001"
+if __name__ == '__main__':
+    threading.Thread(target=sender().thread).start()
+    threading.Thread(target=reciever().thread).start()
     while True:
-        queue_subpart = queue_list.get()
-        while queue_subpart.not_empty:
-            item = queue_subpart.get()
-            Global_ID += 1
-            ID = Global_ID
-            ip1, ip2, ip3, ip4 = item
-            delay = ping.Pinger(target_host=".".join([str(i) for i in item])).ping_any(ID)
-            all_ipv4[ip1][ip2][ip3][ip4] = delay
-            queue_subpart.task_done()
-        write_hash(queue_subpart.ipv4, queue_subpart.filename)
-        queue_list.task_done()
+        task = task_cilent.get_task(server_url)
+        s = main(task)
+        task_cilent.submit_task(server_url, task, s)
 
-# def writing():
-#     while True:
-#         if not q_w.empty() or FLAG_q_alltaskdone:
-#             hashd, filename = q_w.get()
-#             write_hash(hashd, filename)
-#             q_w.task_done()
-#             # q_w.unfinished_tasks()
-#         else:
-#             sleep(1)
-
-def write_hash(hash, filename):
-    os.makedirs(osp.dirname(osp.abspath(filename)), exist_ok=True)
-    json.dump(hash, open(filename, "w"))
-    print("_________________________ write: %s _________________________"%filename)
-
-
-tn = 4
-ts = [threading.Thread(target=worker, daemon=True).start() for i in range(tn)]
-# tw = threading.Thread(target=writing, daemon=True).start()
-
-
-ipv1_low, ipv1_up = 47, 48
-ipv2_low, ipv2_up = 95, 96
-ipv3_range = 256
-ipv4_range= 256
-
-all_ipv4 = {}
-for ip1 in range(ipv1_low, ipv1_up):
-    if ip1 not in all_ipv4.keys(): all_ipv4[ip1] = {}
-    for ip2 in range(ipv2_low, ipv2_up):
-        if ip2 not in all_ipv4[ip1].keys(): all_ipv4[ip1][ip2] = {}
-        for ip3 in range(256):
-            if ip3 not in all_ipv4[ip1][ip2].keys(): all_ipv4[ip1][ip2][ip3] = {}
-            q_subset = queue.Queue()
-            q_subset.ipv4 = all_ipv4[ip1][ip2][ip3]
-            q_subset.filename = osp.join(str(ip1), str(ip2), str(ip3) + ".json")
-            queue_list.put(q_subset) # keep track of queue
-            for ip4 in range(256):
-                # create a new queue
-                # if ip4 not in all_ipv4[ip1][ip2][ip3].keys(): all_ipv4[ip1][ip2][ip3][ip4] = 0
-                q_subset.put((ip1, ip2, ip3, ip4))
-                # load task to sub-queue
-            # q.join()
-            # q_w.put((all_ipv4[ip1][ip2][ip3], osp.join(str(ip1), str(ip2), str(ip3) + ".json")))
-        # print(ip1, ip2)
-
-
-while any(not q_i.empty() for q_i in queue_list):
-    for q_i in queue_list:
-        if q_i.task_done():
-            q_w.put(q_i.ipv4, q_i.filename) # works
-    print(q.qsize())
-    sleep(1)
-print("queue empty")
-q.join()
-FLAG_q_alltaskdone = True
-q_w.join()
-
-# json.dump(all_ipv4[47][95], open(f"47.95.223.{tn}.json", "w+"))
-# hope this work ...
-json.dump(all_ipv4, open("ipv4.json", "w+"))
+    # task = 47*256 + 95
+    # s = main(task)
+    # task_cilent.submit_task(server_url, task, s)

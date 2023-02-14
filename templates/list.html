@@ -75,18 +75,8 @@
 		<div class="percentage">{{ percentage }}%</div>
 	</div>
 
-    <!-- Add the separation line -->
-	<div class="separator"></div>
-
-    <div>
-      <p>Progress: <span id="progress"></span></p>
-      <p>Done tasks: <span id="done_tasks"></span></p>
-      <p>Total tasks: <span id="total_tasks"></span></p>
-    </div>
-
 	<!-- Add the separation line -->
 	<div class="separator"></div>
-
     <p>Errors:</p>
     <ul>
         {% for error in errors %}
@@ -105,12 +95,17 @@
         </div>
     {% endfor %}
 
-    <!-- Add the separation line -->
 	<div class="separator"></div>
+
+	<!-- Display the task blocks -->
+	<div class="task-block-container">
+		{% for index, status_code in tasks.items() %}
+			<a href="/details/{{ index }}" class="task-block status-{{ status_code }}">{{ index }}</a>
+		{% endfor %}
+	</div>
 
 	<script type="text/javascript">
   		var tasks = {{ tasks | tojson }};
-
 		// Get the progress bar and percentage elements
 		const progressBar = document.querySelector('.progress-bar');
 		const percentageElement = document.querySelector('.percentage');
@@ -124,34 +119,5 @@
 		progressBar.style.width = `${percentage}%`;
 		percentageElement.innerText = `${percentage}%`;
 	</script>
-
-    <script>
-    function updateTaskProgress() {
-      // Send an HTTP request to the server to get the updated task progress
-      fetch('/get_progress')
-        .then(response => response.json())
-        .then(data => {
-          // Update the HTML content with the new task progress
-          const doneTasksElement = document.getElementById('done_tasks');
-          const totalTasksElement = document.getElementById('total_tasks');
-          const progressElement = document.getElementById('progress');
-
-          if (data.progress !== null) {
-            doneTasksElement.textContent = `${data.completed_tasks}`;
-            totalTasksElement.textContent = `${data.total_tasks}`;
-            progressElement.textContent = `${data.completed_tasks}/${data.total_tasks}`;
-          } else {
-            doneTasksElement.textContent = 'Unknown';
-            totalTasksElement.textContent = 'Unknown';
-            progressElement.textContent = 'Unknown';
-          }
-        })
-        .catch(error => console.error(error));
-    }
-
-    // Update the task progress every 10 seconds
-    setInterval(updateTaskProgress, 10000);
-    </script>
-
 </body>
 </html>
