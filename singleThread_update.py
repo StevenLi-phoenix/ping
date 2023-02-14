@@ -16,7 +16,8 @@ log = logger.create_default_logger()
 
 class worker:
     GLOBAL_ID = 0
-    IPV4_256_block = {}
+    IPV4_256_block = {i: False for i in range(65535)}
+
 
     def __init__(self):
         self.id = worker.GLOBAL_ID
@@ -26,11 +27,6 @@ class worker:
         self.sock = self.create_socket()
         self.working = True
 
-    @staticmethod
-    def reset_IPV4_256_block(ip_start, ip_end=None):
-        if ip_end is None:
-            ip_end = ip_start + 256
-        worker.IPV4_256_block = {i: False for i in range(ip_start, ip_end)}
 
     def do_checksum(self, source_string):
         """  Verify the packet integritity """
@@ -127,7 +123,7 @@ class sender(worker):
             if retries > 0:
                 self.send_package(hostname=hostname, ID=ID, sock=sock, retries=retries - 1)
             else:
-                log.error(e)
+                log.debug(e)
 
     def thread(self):
         self.log.info(f"{self.id}: start thread")
@@ -147,7 +143,7 @@ class reciever(worker):
         icmp_header = recv_packet[20:28]
         type, code, checksum, packet_ID, sequence = struct.unpack("bbHHh", icmp_header)
         if packet_ID in worker.IPV4_256_block.keys():
-            log.debug(f"recieved packge {packet_ID}")
+            log.info(f"recieved packge from {self.ID_to_IPV4(packet_ID)} with reciever{self.id}")
             worker.IPV4_256_block[packet_ID] = True
 
     def thread(self):
@@ -160,25 +156,21 @@ class reciever(worker):
 def main(ip):
     ip1, ip2 = ip // 256, ip % 256
     log.info(f"Start group {ip1}-{ip2}")
-    s = ""
     # 172.17.134.163
     for ip3 in range(4):
-        # 65535
-        worker.reset_IPV4_256_block(ip3 * 256 % 65535)
-        log.info(f"Start ip block {ip1}.{ip2}.{ip3}.*")
+        # log.info(f"Start ip block {ip1}.{ip2}.{ip3}.*")
         for i in range(256):
             sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
-        while not sender.sender_queue.empty():
-            time.sleep(1)
-        log.info("Wait for incoming package.")
-        time.sleep(2)  # for last timeout
-        assert len(worker.IPV4_256_block) == 256
-        for i in worker.IPV4_256_block.keys():
-            if worker.IPV4_256_block[i]:
-                s += "1"
-            else:
-                s += "0"
-
+        time.sleep(0.01)
+    while not sender.sender_queue.empty():
+        time.sleep(1)
+    assert len(worker.IPV4_256_block) == 65535
+    s = ""
+    for i in range(65535):
+        if worker.IPV4_256_block[i]:
+            s += "1"
+        else:
+            s += "0"
     with open(logger.file(osp.join("ip", str(ip1), str(ip2))), "w+") as f:
         f.write(s)
     return s

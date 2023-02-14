@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, request, jsonify, render_template
 import threading
 import atexit
@@ -5,9 +7,12 @@ import json
 
 app = Flask(__name__)
 
+# todo: auto update when task is done, like auto refresh the webpage but not refreshing the whole webpage
+# todo: add failure tracking below the tittle
+# todo: add current pending block to display
+
 tasks = {i: 0 for i in range(65535)}
 errors = []
-
 
 # Load the task list from disk when the program starts
 try:
@@ -16,11 +21,13 @@ try:
 except FileNotFoundError:
     pass
 
+
 # Save the task list to disk when the program exits
 @atexit.register
 def save_task_list():
     with open('tasks.json', 'w') as f:
         json.dump(tasks, f)
+
 
 def reset_task_status(index):
     if tasks[index] == 1:
@@ -30,10 +37,19 @@ def reset_task_status(index):
 
 def get_task_status(task_id):
     """Return the status code for the given task ID."""
-    if task_id in tasks:
-        return tasks[task_id]
+    if str(task_id) in tasks:
+        return tasks[str(task_id)]
     else:
         return None
+
+
+def save_result(task_id, result):
+    ip = int(task_id)
+    ip1, ip2 = ip // 256, ip % 256
+    filename = os.path.join("ip", str(ip1), str(ip2))
+    os.makedirs(os.path.join("ip", str(ip1)), exist_ok=True)
+    with open(filename, "w") as f:
+        f.write(str(result))
 
 
 @app.route('/get_task', methods=['GET'])
@@ -53,6 +69,7 @@ def submit_result():
     result = request.json['result']
     if result.get('success'):
         tasks[task_index] = 2
+        threading.Thread(target=save_result, args=(task_index, result)).start()
         return jsonify({'success': True})
     else:
         tasks[task_index] = 3
@@ -106,4 +123,4 @@ def details(task_id):
 
 
 if __name__ == '__main__':
-    app.run(port=8001, debug=True)
+    app.run(host='0.0.0.0', port=8001)
