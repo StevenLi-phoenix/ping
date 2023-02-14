@@ -160,13 +160,15 @@ def main(ip):
     log.info(f"Start group {ip1}-{ip2}")
     s = ""
     # 172.17.134.163
-    for ip3 in range(256):
+    for ip3 in range(4):
         # 65535
         worker.reset_IPV4_256_block(ip3 * 256 % 65535)
+        log.info(f"Start ip block {ip1}.{ip2}.{ip3}.*")
         for i in range(256):
             sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
         while not sender.sender_queue.empty():
             time.sleep(1)
+        log.info("Wait for incoming package.")
         time.sleep(2)  # for last timeout
         assert len(worker.IPV4_256_block) == 256
         for i in worker.IPV4_256_block.keys():
@@ -175,7 +177,7 @@ def main(ip):
             else:
                 s += "0"
 
-    with open(logger.file(osp.join("ip",ip1, ip2)), "w+") as f:
+    with open(logger.file(osp.join("ip",str(ip1), str(ip2))), "w+") as f:
         f.write(s)
     return s
 
