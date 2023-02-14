@@ -32,7 +32,9 @@ def submit_task(server_url, task_index, result_data):
     else:
         logger.error(f'Error submitting result for task {task_index}: {response.json()["error"]}')
 
+
 if __name__ == '__main__':
     import json
+
     with open("ip/0/0", "r") as f:
         submit_task("http://47.95.223.74", str(0), json.load(f))
