@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Task Details</title>
+  <style>
+    .status-block {
+      display: inline-block;
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+    .status-0 { background-color: #ccc; }
+    .status-1 { background-color: #00bfff; }
+    .status-2 { background-color: #00cc00; }
+    .status-3 { background-color: #ff0000; }
+  </style>
+</head>
+<body>
+  <h1>Task Details</h1>
+  <p><strong>Task ID:</strong> {{ task_id }}</p>
+  <p><strong>Task Status:</strong>
+    <span class="status-block status-{{ status_code }}"></span>
+    <span id="status-text"></span>
+  </p>
+  {% if result is not none %}
+  <p><strong>Task Result:</strong> {{ result }}</p>
+  {% endif %}
+  {% if error is not none %}
+  <p><strong>Task Error:</strong> {{ error }}</p>
+  {% endif %}
+  <p><a href="/">Back to Task List</a></p>
+  <script type="text/javascript">
+    var statusText = document.getElementById('status-text');
+    var statusCodes = {
+      0: 'Pending',
+      1: 'In Progress',
+      2: 'Completed',
+      3: 'Failed'
+    };
+    statusText.innerText = statusCodes[{{ status_code }}];
+  </script>
+</body>
+</html>
