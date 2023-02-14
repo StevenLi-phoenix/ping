@@ -67,7 +67,7 @@ def get_task():
 def submit_result():
     task_index = request.json['task_index']
     result = request.json['result']
-    if result.get('success'):
+    if result.get('success') and result.get('result_data') and len(result.get('result_data')) == 65536:
         tasks[task_index] = 2
         threading.Thread(target=save_result, args=(task_index, result)).start()
         return jsonify({'success': True})
@@ -90,6 +90,11 @@ def get_errors():
     return jsonify(errors)
 
 
+@app.route('/get_pending', methods=['GET'])
+def get_pending():
+    return jsonify({k: v for k, v in tasks.items() if v == 1})
+
+
 @app.route('/get_latest_task', methods=['GET'])
 def get_latest_task():
     latest_index = max(filter(lambda i: tasks[i] == 0, tasks))
@@ -106,7 +111,9 @@ def get_progress():
     return jsonify({
         'progress': progress,
         'done_tasks': completed_tasks,
-        'total_tasks': total_tasks
+        'total_tasks': total_tasks,
+        'errors': errors,
+        'pending': {k: v for k, v in tasks.items() if v == 1}
     })
 
 
@@ -117,7 +124,7 @@ def index():
 
 
 @app.route('/list')
-def index():
+def indexBlocks():
     """Display the task status page."""
     return render_template('list.html', tasks=tasks, errors=errors)
 

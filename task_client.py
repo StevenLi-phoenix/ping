@@ -15,7 +15,7 @@ def get_task(server_url):
         # Simulate task processing by waiting for a random amount of time
         return int(task_index)
     else:
-        logger.error(f'Error getting task: {response.json()["error"]}')
+        logger.error(f'Error getting task [{response.status_code}]')
 
 
 def submit_task(server_url, task_index, result_data):
@@ -28,13 +28,13 @@ def submit_task(server_url, task_index, result_data):
         if data['success']:
             logger.info(f'Result for task {task_index} submitted successfully')
         else:
-            logger.error(f'Error submitting result for task {task_index}: {data["error"]}')
+            logger.error(f'Error submitting result for task {task_index}: {data.get("error")}')
     else:
-        logger.error(f'Error submitting result for task {task_index}: {response.json()["error"]}')
+        logger.error(f'Error submitting result for task {task_index} [{response.status_code}]')
 
 
 if __name__ == '__main__':
-    import json
-
-    with open("ip/0/0", "r") as f:
-        submit_task("http://47.95.223.74", str(0), json.load(f))
+    for i in range(25565):
+        server = "http://127.0.0.1:8001"
+        index = get_task(server)
+        submit_task(server, str(index) if index else str(0), "0"*65536)

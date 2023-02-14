@@ -1,5 +1,5 @@
 ICMP_ECHO_REQUEST = 8
-LEVEL = 30
+LEVEL = 20
 LogDirectionary = "./log"
 RETRY_TIMES = 3
 RETRY_TIMEOUT = 10

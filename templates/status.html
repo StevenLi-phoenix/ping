@@ -66,7 +66,9 @@
 <body>
 	<h1>Task Status</h1>
 
-	<!-- Add the separation line -->
+    <a href="/list">Block lists</a>
+
+    <!-- Add the separation line -->
 	<div class="separator"></div>
 
 	<!-- Display the progress bar and percentage-->
@@ -88,22 +90,10 @@
 	<div class="separator"></div>
 
     <p>Errors:</p>
-    <ul>
-        {% for error in errors %}
-            <li>{{ error['task_index'] }} - {{ error['error'] }}</li>
-        {% endfor %}
-    </ul>
+        <ul id="errors"></ul>
+
     <p>Pending Blocks:</p>
-    <ul>
-        {% for task_index, status_code in tasks.items() if status_code == 1 %}
-            <li><a href="/details/{{ task_index }}">Task {{ task_index }}</a></li>
-        {% endfor %}
-    </ul>
-    {% for task_index, status_code in tasks.items() if status_code == 3 %}
-        <div style="background-color: {% if status_code == 0 %}gray{% elif status_code == 1 %}yellow{% elif status_code == 2 %}green{% else %}red{% endif %}">
-            <p><a href="/details/{{ task_index }}">Task {{ task_index }}</a> - {{ status_code }}</p>
-        </div>
-    {% endfor %}
+        <ul id="pending"></ul>
 
     <!-- Add the separation line -->
 	<div class="separator"></div>
@@ -135,22 +125,40 @@
           const doneTasksElement = document.getElementById('done_tasks');
           const totalTasksElement = document.getElementById('total_tasks');
           const progressElement = document.getElementById('progress');
+          const errorsList = document.getElementById('errors');
+                errorsList.innerHTML = '';
+          const pendingList = document.getElementById('pending');
+                pendingList.innerHTML = '';
 
           if (data.progress !== null) {
-            doneTasksElement.textContent = `${data.completed_tasks}`;
+            doneTasksElement.textContent = `${data.done_tasks}`;
             totalTasksElement.textContent = `${data.total_tasks}`;
-            progressElement.textContent = `${data.completed_tasks}/${data.total_tasks}`;
+            progressElement.textContent = `${data.done_tasks}/${data.total_tasks}`;
           } else {
             doneTasksElement.textContent = 'Unknown';
             totalTasksElement.textContent = 'Unknown';
             progressElement.textContent = 'Unknown';
           }
+
+          for (const index in data.errors) {
+				const li = document.createElement('li');
+				li.textContent = `Task-${index}:${data.errors[index]}`;
+				pendingList.appendChild(li);
+			}
+
+          for (const index in data.pending) {
+				const li = document.createElement('li');
+				li.textContent = `Task-${index}`;
+				pendingList.appendChild(li);
+			}
+
         })
         .catch(error => console.error(error));
     }
 
+    updateTaskProgress()
     // Update the task progress every 10 seconds
-    setInterval(updateTaskProgress, 10000);
+    setInterval(updateTaskProgress, 1000);
     </script>
 
 </body>
