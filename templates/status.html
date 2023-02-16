@@ -140,12 +140,16 @@
             progressElement.textContent = 'Unknown';
           }
 
+		  const errorsList = document.getElementById('errors');
+                errorsList.innerHTML = '';
           for (const index in data.errors) {
 				const li = document.createElement('li');
-				li.textContent = `Task-${index}:${data.errors[index]}`;
+				li.textContent = `Task-${index}`;
 				pendingList.appendChild(li);
 			}
 
+		  const pendingList = document.getElementById('pending');
+                pendingList.innerHTML = '';
           for (const index in data.pending) {
 				const li = document.createElement('li');
 				li.textContent = `Task-${index}`;

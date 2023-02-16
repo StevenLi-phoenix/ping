@@ -11,7 +11,7 @@ app = Flask(__name__)
 # todo: add failure tracking below the tittle
 # todo: add current pending block to display
 
-tasks = {i: 0 for i in range(65535)}
+tasks = {i: 0 for i in range(256)}
 errors = []
 
 # Load the task list from disk when the program starts
@@ -67,14 +67,19 @@ def get_task():
 def submit_result():
     task_index = request.json['task_index']
     result = request.json['result']
+    # length_of_data = len(result.get('result_data'))
     if result.get('success') and result.get('result_data') and len(result.get('result_data')) == 65536:
         tasks[task_index] = 2
         threading.Thread(target=save_result, args=(task_index, result)).start()
         return jsonify({'success': True})
+    elif len(result.get('result_data')) != 65536:
+        tasks[task_index] = 3
+        error = {'task_index': task_index, 'error': f'length:{len(result.get("result_data"))}'}
     else:
         tasks[task_index] = 3
-        errors.append({'task_index': task_index, 'error': result.get('error', 'Unknown error')})
-        return jsonify({'success': False})
+        error = {'task_index': task_index, 'error': 'Unknown error'}
+    errors.append(error)
+    return jsonify({'success': False, 'error':error})
 
 
 @app.route('/add_task', methods=['POST'])

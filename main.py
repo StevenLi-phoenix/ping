@@ -162,8 +162,9 @@ def main(ip):
     log.info(f"Start group {ip1}-{ip2}")
     for ip3 in range(256):
         for i in range(256):
-            sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
-        time.sleep(0.05)
+            # sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
+            pass
+        time.sleep(0.1)
     while not sender.sender_queue.empty():
         time.sleep(1)
     time.sleep(2)
@@ -180,7 +181,10 @@ def main(ip):
     return s
 
 
-server_url = "http://47.95.223.74:8001"
+# server_url = "http://172.16.82.60:8001"
+# server_url = "http://47.95.223.74:8001"
+server_url = "http://127.0.0.1:8001"
+
 if __name__ == '__main__':
     threading.Thread(target=sender().thread).start()
     threading.Thread(target=receiver().thread).start()
