@@ -1,11 +1,16 @@
 import requests
 
+test = False  # only worked on task_server.py side. does not affect client side
+
 LEVEL = 20  # info: 20
 LogDirectionary = "./log"
 ICMP_ECHO_REQUEST = 8
 RETRY_TIMES = 3
 LOOPTIMEOUTSEC = 20
 DELAYONCRITICALERROR = 60
+
+# Define the size of the rolling window in minutes
+window_size = 60
 
 LOCAL_SERVER_IP = "http://127.0.0.1:8001" # FOR LOCAL SERVRE ONLY
 INTRA_SERVER_IP = "http://172.16.82.60:8001" # FOR INTRANET

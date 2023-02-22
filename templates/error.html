@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Error List</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function updateErrorList() {
+          $.getJSON("/error", function(data) {
+            var html = "";
+            for (var i = 0; i < data.length; i++) {
+              var error = data[i];
+              html += "<tr>";
+              html += "<td>" + error["error"] + "</td>";
+              html += "<td>" + error["task_index"] + "</td>";
+              html += "<td id='status-" + error["task_index"] + "'>" + (error["status"] || "N/A") + "</td>";
+              html += '<td><form onsubmit="return false;">';
+              html += '<button type="submit" name="code" value="0" onclick="sendRequest(' + error["task_index"] + ', 0)">Retry</button>';
+              html += '<button type="submit" name="code" value="2" onclick="sendRequest(' + error["task_index"] + ', 2)">Success</button>';
+              html += '<button type="submit" name="code" value="3" onclick="sendRequest(' + error["task_index"] + ', 3)">Error</button>';
+              html += '</form><span class="result"></span></td>';
+              html += "</tr>";
+            }
+            $("#error-list tbody").html(html);
+          });
+        }
+        setInterval(updateErrorList, 60000);
+        updateErrorList();
+
+        function sendRequest(id, code) {
+            $.getJSON("/revise?id=" + id + "&code=" + code, function (result) {
+                var statusTd = $("#status-" + id);
+                if (result.success) {
+                    statusTd.text("Success");
+                } else {
+                    statusTd.text(result.error || "Unknown error");
+                }
+                var resultSpan = statusTd.closest("td").find(".result");
+                resultSpan.text(JSON.stringify(result));
+            });
+        }
+    </script>
+    <style>
+      table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      th, td {
+        text-align: left;
+        padding: 8px;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      form {
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Error List</h1>
+    <table id="error-list">
+      <thead>
+        <tr>
+          <th>Error</th>
+          <th>Task Index</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </body>
+</html>

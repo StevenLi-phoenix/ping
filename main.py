@@ -96,6 +96,7 @@ class worker:
     @atexit.register
     def stopLoop(self):
         self.working = False
+        self.sock.close()
 
 
 class sender(worker):

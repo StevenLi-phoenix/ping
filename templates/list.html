@@ -58,6 +58,7 @@
 			position: absolute;
 			top: 0;
 			right: 0;
+			font-size: 40px;
 			padding: 10px;
 			background-color: #fff;
 		  }
@@ -65,7 +66,7 @@
 </head>
 <body>
 	<h1>Task Status</h1>
-
+	<h2>WARN: This page static</h2>
 	<!-- Add the separation line -->
 	<div class="separator"></div>
 
@@ -74,7 +75,7 @@
 		<div class="progress-bar"></div>
 		<div class="percentage">{{ percentage }}%</div>
 	</div>
-	<h1>WARN: This page static</h1>
+
 	<!-- Add the separation line -->
 	<div class="separator"></div>
     <p>Errors:</p>
@@ -96,6 +97,8 @@
     {% endfor %}
 
 	<div class="separator"></div>
+	<p><a href="/">Back to status</a></p>
+	<div class="separator"></div>
 
 	<!-- Display the task blocks -->
 	<div class="task-block-container">
@@ -105,19 +108,22 @@
 	</div>
 
 	<script type="text/javascript">
-  		var tasks = {{ tasks | tojson }};
-		// Get the progress bar and percentage elements
-		const progressBar = document.querySelector('.progress-bar');
-		const percentageElement = document.querySelector('.percentage');
-
-		// Calculate the percentage of completed tasks
-		const completedTasks = Object.values(tasks).filter(status => status === 2).length;
-		const totalTasks = Object.keys(tasks).length;
-		const percentage = totalTasks === 0 ? 0 : Math.floor((completedTasks / totalTasks) * 100);
-
-		// Update the progress bar width and percentage text
-		progressBar.style.width = `${percentage}%`;
-		percentageElement.innerText = `${percentage}%`;
+  		function updateTaskProgress() {
+			// Send an HTTP request to the server to get the updated task progress
+			fetch('/get_progress')
+					.then(response => response.json())
+					.then(data => {
+						const progressBar = document.querySelector('.progress-bar');
+						const percentageElement = document.querySelector('.percentage');
+						if (data.progress !== null) {
+							const percentage = `${data.total_tasks}` === 0 ? 0 : Math.floor((`${data.done_tasks}` / `${data.total_tasks}`) * 100);
+							progressBar.style.width = `${percentage}%`;
+							percentageElement.innerText = `${percentage}%`;
+						}
+					})
+					.catch(error => console.error(error));
+		}
+		updateTaskProgress()
 	</script>
 </body>
 </html>

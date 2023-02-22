@@ -1,11 +1,11 @@
 #!/bin/bash
 
-ZIPNAME='vsta'
+ZIPNAME='3uv1'
 
 # update packages
-apt update
-apt upgrade -y
-apt install unzip
+apt update 
+apt -y upgrade
+apt -y install unzip
 apt autoremove
 
 
@@ -23,7 +23,7 @@ sysctl vm.swappiness=5
 echo "vm.swappiness=5" >> /etc/sysctl.conf
 
 # download and unzip files
-cd || exit
+cd /root || exit
 wget http://47.95.223.74:8000/files/$ZIPNAME
 unzip -o $ZIPNAME
 

@@ -58,6 +58,7 @@
 			position: absolute;
 			top: 0;
 			right: 0;
+			font-size: 40px;
 			padding: 10px;
 			background-color: #fff;
 		  }
@@ -115,7 +116,7 @@
             doneTasksElement.textContent = `${data.done_tasks}`;
             totalTasksElement.textContent = `${data.total_tasks}`;
             progressElement.textContent = `${data.done_tasks}/${data.total_tasks}`;
-			const percentage = totalTasks === 0 ? 0 : Math.floor((`${data.done_tasks}` / `${data.total_tasks}`) * 100);
+			const percentage = `${data.total_tasks}` === 0 ? 0 : Math.floor((`${data.done_tasks}` / `${data.total_tasks}`) * 100);
 		    progressBar.style.width = `${percentage}%`;
 		    percentageElement.innerText = `${percentage}%`;
           } else {
@@ -129,7 +130,7 @@
           for (const index in data.errors) {
 				const li = document.createElement('li');
 				li.textContent = `Task-${index}`;
-				pendingList.appendChild(li);
+				errorsList.appendChild(li);
 			}
 
 		  const pendingList = document.getElementById('pending');
