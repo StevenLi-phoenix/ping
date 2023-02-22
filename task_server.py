@@ -70,6 +70,7 @@ def submit_result():
     # length_of_data = len(result.get('result_data'))
     if result.get('success') and result.get('result_data') and len(result.get('result_data')) == 65536:
         tasks[task_index] = 2
+        # start a new thread for saving returning time
         threading.Thread(target=save_result, args=(task_index, result)).start()
         return jsonify({'success': True})
     elif len(result.get('result_data')) != 65536:
@@ -143,6 +144,11 @@ def details(task_id):
     else:
         return render_template('details.html', task_id=task_id, status_code=status_code)
 
+
+@app.route('/ping')
+def online():
+    """return the server status return {}"""
+    return {}
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8001)

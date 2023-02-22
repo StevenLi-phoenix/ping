@@ -125,10 +125,10 @@
           const doneTasksElement = document.getElementById('done_tasks');
           const totalTasksElement = document.getElementById('total_tasks');
           const progressElement = document.getElementById('progress');
-          const errorsList = document.getElementById('errors');
-                errorsList.innerHTML = '';
-          const pendingList = document.getElementById('pending');
-                pendingList.innerHTML = '';
+          // const errorsList = document.getElementById('errors');
+          //       errorsList.innerHTML = '';
+          // const pendingList = document.getElementById('pending');
+          //       pendingList.innerHTML = '';
 
           if (data.progress !== null) {
             doneTasksElement.textContent = `${data.done_tasks}`;
@@ -162,7 +162,7 @@
 
     updateTaskProgress()
     // Update the task progress every 10 seconds
-    setInterval(updateTaskProgress, 1000);
+    setInterval(updateTaskProgress, 10000);
     </script>
 
 </body>

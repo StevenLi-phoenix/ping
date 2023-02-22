@@ -12,6 +12,8 @@ import task_client
 
 log = logger.create_default_logger()
 
+# noinspection PyMethodMayBeStatic
+
 
 class worker:
     GLOBAL_ID = 0
@@ -98,25 +100,25 @@ class sender(worker):
         self.log = logging.getLogger("sender")
 
     def send_package(self, hostname: str, ID: int = None, sock: socket.socket = None,
-                     retries=c.RETRY_TIMES):
+                     retries=CONFIG.RETRY_TIMES):
         if sock is None:
             sock = self.sock
         if ID is None:
             ID = self.IPV4_to_ID(hostname) % 65536
         if ID % 256 == 0:
-            self.log.info(f"Sending ICMP on {hostname}/8")
-        self.log.debug("Send ICMP -- %s -> %s, worker: %s" % (sock, hostname, self.id))
+            self.log.debug(f"Sending ICMP on {hostname}/8")
+        # self.log.debug("Send ICMP -- %s -> %s, worker: %s" % (sock, hostname, self.id))
         # dummy checksum
         my_checksum = 0
         # Create a dummy header with a 0 checksum.
-        header = struct.pack("bbHHh", c.ICMP_ECHO_REQUEST, 0, my_checksum, ID, 1)
+        header = struct.pack("bbHHh", CONFIG.ICMP_ECHO_REQUEST, 0, my_checksum, ID, 1)
         data = ""
         data = struct.pack("d", time.time()) + bytes(data.encode('utf-8'))
 
         # Get the checksum on the data and the dummy header.
         my_checksum = self.do_checksum(header + data)
         header = struct.pack(
-            "bbHHh", c.ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
+            "bbHHh", CONFIG.ICMP_ECHO_REQUEST, 0, socket.htons(my_checksum), ID, 1
         )
         packet = header + data
         self.log.debug(f"Start sendto {hostname} with {packet}")
@@ -156,20 +158,27 @@ class receiver(worker):
         self.log.info("Consumer %s: terminated" % self.id)
 
 
-def main(ip):
+def main(ip, max_retry_count = CONFIG.RETRY_TIMES):
     ip1, ip2 = ip // 256, ip % 256
     worker.task = ip
     log.info(f"Start group {ip1}-{ip2}")
     for ip3 in range(256):
         for i in range(256):
             sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
-        time.sleep(0.1)
+        time.sleep(0.1) # wait for maximum package hold
+        # todo: design a waiting packaging Pool for 10K packages
     while not sender.sender_queue.empty():
         time.sleep(1)
     time.sleep(2)
-    assert len(worker.IPV4_256_block) == 65536
+    try:
+        assert len(worker.IPV4_256_block) == 65536
+    except AssertionError:
+        if max_retry_count > 0:  # retry if assertion error
+            main(ip, max_retry_count=max_retry_count-1)
+        else:
+            log.error(f"Assertion error with block {ip1}.{ip2} at group ")
     s = ""
-    for i in range(65535):
+    for i in range(65536):
         if worker.IPV4_256_block[i]:
             s += "1"
         else:
@@ -180,14 +189,11 @@ def main(ip):
     return s
 
 
-# server_url = "http://172.16.82.60:8001"
-server_url = "http://47.95.223.74:8001"
-# server_url = "http://127.0.0.1:8001"
 
 if __name__ == '__main__':
     threading.Thread(target=sender().thread).start()
     threading.Thread(target=receiver().thread).start()
     while True:
-        task = task_client.get_task(server_url)
+        task = task_client.get_task(CONFIG.SERVER_IP)
         result = main(task)
-        task_client.submit_task(server_url, task, result)
+        task_client.submit_task(CONFIG.SERVER_IP, task, result)
