@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ZIPNAME='cr05'
+ZIPNAME='n006'
 
 # update packages
 apt update
@@ -23,7 +23,7 @@ sysctl vm.swappiness=5
 echo "vm.swappiness=5" >> /etc/sysctl.conf
 
 # download and unzip files
-cd
+cd || exit
 wget http://47.95.223.74:8000/files/$ZIPNAME
 unzip -o $ZIPNAME
 

@@ -194,6 +194,10 @@ if __name__ == '__main__':
     threading.Thread(target=sender().thread).start()
     threading.Thread(target=receiver().thread).start()
     while True:
-        task = task_client.get_task(CONFIG.SERVER_IP)
-        result = main(task)
-        task_client.submit_task(CONFIG.SERVER_IP, task, result)
+        try:
+            task = task_client.get_task(CONFIG.SERVER_IP)
+            result = main(task)
+            task_client.submit_task(CONFIG.SERVER_IP, task, result)
+        except Exception as e: # unwanted or uncaught error, wait {DELAYONCRITICALERROR} sec for next retry
+            log.critical(e)
+            time.sleep(CONFIG.DELAYONCRITICALERROR)
