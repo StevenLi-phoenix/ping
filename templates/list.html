@@ -74,7 +74,7 @@
 		<div class="progress-bar"></div>
 		<div class="percentage">{{ percentage }}%</div>
 	</div>
-
+	<h1>WARN: This page static</h1>
 	<!-- Add the separation line -->
 	<div class="separator"></div>
     <p>Errors:</p>
@@ -105,7 +105,7 @@
 	</div>
 
 	<script type="text/javascript">
-  		var tasks = {{ tasks }};
+  		var tasks = {{ tasks | tojson }};
 		// Get the progress bar and percentage elements
 		const progressBar = document.querySelector('.progress-bar');
 		const percentageElement = document.querySelector('.percentage');

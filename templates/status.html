@@ -98,23 +98,6 @@
     <!-- Add the separation line -->
 	<div class="separator"></div>
 
-	<script type="text/javascript">
-  		var tasks = {{ tasks | tojson }};
-
-		// Get the progress bar and percentage elements
-		const progressBar = document.querySelector('.progress-bar');
-		const percentageElement = document.querySelector('.percentage');
-
-		// Calculate the percentage of completed tasks
-		const completedTasks = Object.values(tasks).filter(status => status === 2).length;
-		const totalTasks = Object.keys(tasks).length;
-		const percentage = totalTasks === 0 ? 0 : Math.floor((completedTasks / totalTasks) * 100);
-
-		// Update the progress bar width and percentage text
-		progressBar.style.width = `${percentage}%`;
-		percentageElement.innerText = `${percentage}%`;
-	</script>
-
     <script>
     function updateTaskProgress() {
       // Send an HTTP request to the server to get the updated task progress
@@ -125,15 +108,16 @@
           const doneTasksElement = document.getElementById('done_tasks');
           const totalTasksElement = document.getElementById('total_tasks');
           const progressElement = document.getElementById('progress');
-          // const errorsList = document.getElementById('errors');
-          //       errorsList.innerHTML = '';
-          // const pendingList = document.getElementById('pending');
-          //       pendingList.innerHTML = '';
+		  const progressBar = document.querySelector('.progress-bar');
+		  const percentageElement = document.querySelector('.percentage');
 
           if (data.progress !== null) {
             doneTasksElement.textContent = `${data.done_tasks}`;
             totalTasksElement.textContent = `${data.total_tasks}`;
             progressElement.textContent = `${data.done_tasks}/${data.total_tasks}`;
+			const percentage = totalTasks === 0 ? 0 : Math.floor((`${data.done_tasks}` / `${data.total_tasks}`) * 100);
+		    progressBar.style.width = `${percentage}%`;
+		    percentageElement.innerText = `${percentage}%`;
           } else {
             doneTasksElement.textContent = 'Unknown';
             totalTasksElement.textContent = 'Unknown';
