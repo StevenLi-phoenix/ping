@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ZIPNAME='n006'
+ZIPNAME='vsta'
 
 # update packages
 apt update

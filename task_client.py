@@ -9,11 +9,12 @@ def get_task(server_url):
     response = requests.get(f'{server_url}/get_task')
     if response.status_code == 200:
         data = response.json()
-        task_index = data['task_index']
-        logger.info(f'Got task {task_index}, status: {data["task_status"]}')
-
-        # Simulate task processing by waiting for a random amount of time
-        return int(task_index)
+        task_index = data.get('task_index')
+        if task_index:
+            logger.info(f'Got task {task_index}, status: {data["task_status"]}')
+            return int(task_index)
+        else:
+            logger.error(f'Error getting task [{response.content}]')
     else:
         logger.error(f'Error getting task [{response.status_code}]')
 

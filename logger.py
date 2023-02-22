@@ -6,6 +6,7 @@ import platform
 
 import CONFIG
 
+# logging.INFO => 20
 
 def file(filename):
     os.makedirs(osp.dirname(filename), exist_ok=True)

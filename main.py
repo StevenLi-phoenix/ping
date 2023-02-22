@@ -158,7 +158,7 @@ class receiver(worker):
         icmp_header = recv_packet[20:28]
         _, _, _, packet_ID, _ = struct.unpack("bbHHh", icmp_header)
         if packet_ID in worker.IPV4_256_block.keys():
-            log.info(f"received package from {self.ID_to_IPV4(packet_ID + worker.task * 65535)} with receiver{self.id}")
+            log.debug(f"received package from Gourp{worker.task}-{packet_ID}({self.ID_to_IPV4(packet_ID + worker.task * 65535)}) with receiver{self.id}")
             worker.IPV4_256_block[packet_ID] = True
 
     def thread(self):
@@ -181,8 +181,8 @@ def main(ip, max_retry_count = CONFIG.RETRY_TIMES):
         time.sleep(0.1) # wait for maximum package hold
         # todo: design a waiting packaging Pool for 10K packages
     while not sender.sender_queue.empty():
-        time.sleep(1)
-    time.sleep(2)
+        time.sleep(0.1)
+    time.sleep(2)  # wait for package to return
     try:
         assert len(worker.IPV4_256_block) == 65536
     except AssertionError:
@@ -209,8 +209,11 @@ if __name__ == '__main__':
     while True:
         try:
             task = task_client.get_task(CONFIG.SERVER_IP)
-            result = main(task)
-            task_client.submit_task(CONFIG.SERVER_IP, task, result)
+            if task:
+                result = main(task)
+                task_client.submit_task(CONFIG.SERVER_IP, task, result)
+            else:
+                raise socket.timeout
         except Exception as e: # unwanted or uncaught error, wait {DELAYONCRITICALERROR} sec for next retry
-            log.critical(e)
+            log.critical(f"Main Loop critical error:{e}")
             time.sleep(CONFIG.DELAYONCRITICALERROR)
