@@ -9,6 +9,7 @@ import os.path as osp
 import CONFIG
 import logger
 import task_client
+import atexit
 
 log = logger.create_default_logger()
 
@@ -26,6 +27,7 @@ class worker:
         self.log = logging.getLogger("worker")
         self.log.debug(f"Worker {self.id} started")
         self.sock = self.create_socket()
+        self.sock.settimeout(CONFIG.LOOPTIMEOUTSEC)
         self.working = True
 
     @staticmethod
@@ -91,6 +93,10 @@ class worker:
     def packageID_to_BlockID(self, packageID: int) -> int:
         return packageID % 256
 
+    @atexit.register
+    def stopLoop(self):
+        self.working = False
+
 
 class sender(worker):
     sender_queue = queue.SimpleQueue()
@@ -133,10 +139,14 @@ class sender(worker):
     def thread(self):
         self.log.info(f"{self.id}: start thread")
         while self.working:
-            ipv4Addr = self.sender_queue.get()
-            self.log.debug(f"{self.id} Start working on {ipv4Addr}")
-            self.send_package(ipv4Addr)
-            self.log.debug(f"Delay on {ipv4Addr}")
+            try:
+                ipv4Addr = self.sender_queue.get(timeout=CONFIG.LOOPTIMEOUTSEC)
+                self.log.debug(f"{self.id} Start working on {ipv4Addr}")
+                self.send_package(ipv4Addr)
+                self.log.debug(f"Delay on {ipv4Addr}")
+            except queue.Empty:
+                log.error(f"Queue is empty and could not get new item retry in {CONFIG.LOOPTIMEOUTSEC}")
+        log.info(f"Sender {self.id} terminated")
 
 
 class receiver(worker):
@@ -154,7 +164,10 @@ class receiver(worker):
     def thread(self):
         self.log.info("Consumer %s: start" % self.id)
         while self.working:
-            self.receive_package()
+            try:
+                self.receive_package()
+            except socket.timeout:
+                log.error("Did not recv package from last 2 sec")
         self.log.info("Consumer %s: terminated" % self.id)
 
 
@@ -191,8 +204,8 @@ def main(ip, max_retry_count = CONFIG.RETRY_TIMES):
 
 
 if __name__ == '__main__':
-    threading.Thread(target=sender().thread).start()
-    threading.Thread(target=receiver().thread).start()
+    threading.Thread(target=sender().thread, daemon=True).start()
+    threading.Thread(target=receiver().thread, daemon=True).start()
     while True:
         try:
             task = task_client.get_task(CONFIG.SERVER_IP)
