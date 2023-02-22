@@ -6,7 +6,7 @@ import threading
 import time
 import os.path as osp
 
-import c
+import CONFIG
 import logger
 import task_client
 
@@ -15,7 +15,7 @@ log = logger.create_default_logger()
 
 class worker:
     GLOBAL_ID = 0
-    IPV4_256_block = {i: False for i in range(65535)}
+    IPV4_256_block = {i: False for i in range(65536)}
     task = 0
 
     def __init__(self):
@@ -28,7 +28,7 @@ class worker:
 
     @staticmethod
     def reset_IPV4_256_block():
-        worker.IPV4_256_block = {i: False for i in range(65535)}
+        worker.IPV4_256_block = {i: False for i in range(65536)}
 
     def do_checksum(self, source_string):
         """  Verify the packet integrity """
@@ -162,13 +162,12 @@ def main(ip):
     log.info(f"Start group {ip1}-{ip2}")
     for ip3 in range(256):
         for i in range(256):
-            # sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
-            pass
+            sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
         time.sleep(0.1)
     while not sender.sender_queue.empty():
         time.sleep(1)
     time.sleep(2)
-    assert len(worker.IPV4_256_block) == 65535
+    assert len(worker.IPV4_256_block) == 65536
     s = ""
     for i in range(65535):
         if worker.IPV4_256_block[i]:
@@ -182,8 +181,8 @@ def main(ip):
 
 
 # server_url = "http://172.16.82.60:8001"
-# server_url = "http://47.95.223.74:8001"
-server_url = "http://127.0.0.1:8001"
+server_url = "http://47.95.223.74:8001"
+# server_url = "http://127.0.0.1:8001"
 
 if __name__ == '__main__':
     threading.Thread(target=sender().thread).start()

@@ -3,9 +3,8 @@ import logging.handlers
 import os
 import os.path as osp
 import platform
-import sys
 
-import c
+import CONFIG
 
 
 def file(filename):
@@ -13,7 +12,7 @@ def file(filename):
     return filename
 
 
-def create_default_logger(name="", stream=sys.stdout, level=c.LEVEL, filename=f"log/{__name__}.log",
+def create_default_logger(name="", level=CONFIG.LEVEL, filename=osp.join(CONFIG.LogDirectionary, __name__+".log"),
                           buffer=1024) -> logging.Logger:
     log = logging.getLogger(name)
     log.setLevel(level)
@@ -46,5 +45,5 @@ def test(logger: logging.Logger):
 
 
 if __name__ == '__main__':
-    log = create_default_logger(level=c.LEVEL, name="")
+    log = create_default_logger(level=CONFIG.LEVEL, name="")
     test(log)
