@@ -95,6 +95,7 @@ def get_task():
 
 @app.route('/submit_result', methods=['POST'])
 def submit_result():
+    connections.append(datetime.now())
     task_index = int(request.json['task_index'])
     result = request.json['result']
     result["time"] = int(time.time())
@@ -129,8 +130,8 @@ def error():
 
 
 # todo: add error handler page
-@app.route('/error/reset', methods=['GET'])
-def error_reset():
+@app.route('/errors', methods=['GET'])
+def geterrors():
     return render_template("error.html")
 
 
@@ -162,11 +163,7 @@ def get_progress():
 
 @app.route('/rate')
 def rate():
-    # Append the current time to the connections list
-    connections.append(datetime.now())
-    # Calculate the connection rate
     ratec = calculate_rate()
-    # Return a response with the current connection rate
     return f'The current connection rate is {ratec:.2f} connections per minute.'
 
 
@@ -212,7 +209,19 @@ def revise():
     else:
         return {'success': False, "error": "Unknown error"}
 
-#todo: add a method that can delete error
+
+@app.route('/error/reset')
+def error_reset():
+    global errors
+    try:
+        task_id = int(request.args.get('id'))
+        if task_id == -1:
+            return {'success': True, "error":"RESET ALL ERRORS"}
+        else:
+            errors = [item for item in errors if item['task_index'] != task_id]
+            return {'success': True}
+    except Exception as e:
+        return {'success': False, "error":str(e)}
 
 
 # todo: add an user system to thanks for contributing and calculate the submition time based on their submit likewise

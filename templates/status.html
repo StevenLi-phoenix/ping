@@ -62,6 +62,40 @@
 			padding: 10px;
 			background-color: #fff;
 		  }
+
+        .button {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: #333;
+        color: #fff;
+        border-radius: 5px;
+        font-weight: bold;
+        text-decoration: none;
+        transition: background-color 0.3s ease;
+      }
+      .button:hover {
+        background-color: #555;
+      }
+      a {
+        color: #333;
+        text-decoration: none;
+        font-weight: bold;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      main {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #fff;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.3);
+      }
+      p {
+        font-size: 18px;
+        line-height: 1.5;
+        margin-bottom: 20px;
+      }
 	</style>
 </head>
 <body>
@@ -98,7 +132,20 @@
 
     <!-- Add the separation line -->
 	<div class="separator"></div>
+    <main class="description">
+        <p>Welcome to our task server website, where users can join and participate in a task that involves pinging the entire IPv4 address using the ICMP protocol. Our website provides a convenient and efficient platform for distributing this task to interested users.</p>
 
+        <p>To join the task, users simply need to download the file <a href="http://47.95.223.74:8000/ping" download target="_blank">http://47.95.223.74:8000/ping</a> and start running the "main.py" script using sudo privileges. This will enable them to start pinging the entire IPv4 address space and contribute to the completion of the task.</p>
+
+        <p>Our website is designed to ensure that the task is distributed fairly among all participants, and that the results are collated and analyzed in an organized and efficient manner. This helps to ensure that the task is completed as quickly and accurately as possible, with minimal duplication or wasted effort.</p>
+
+        <p>Users can also track their progress and see how their contributions are helping to advance the overall completion of the task. This provides a sense of accomplishment and motivation to keep working towards the goal.</p>
+
+        <p>Overall, our task server website provides a unique and exciting opportunity for users to contribute to a large-scale project while also gaining valuable experience and knowledge in the field of networking and computer science. We welcome all interested users to join and start pinging the IPv4 address space today!</p>
+
+        <a href="http://47.95.223.74:8000/ping" download target="_blank" id="download-link" class="button">Download File</a>
+    </main>
+  </body>
     <script>
     function updateTaskProgress() {
       // Send an HTTP request to the server to get the updated task progress
@@ -149,6 +196,5 @@
     // Update the task progress every 10 seconds
     setInterval(updateTaskProgress, 10000);
     </script>
-
 </body>
 </html>

