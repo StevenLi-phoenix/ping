@@ -9,8 +9,6 @@ import json
 
 import CONFIG
 
-# todo: add a discribtion to both list and status
-
 app = Flask(__name__)
 if CONFIG.test:
     tasks = {int(i + 12032): 0 for i in range(256)}
@@ -129,7 +127,6 @@ def error():
     return jsonify(errors)
 
 
-# todo: add error handler page
 @app.route('/errors', methods=['GET'])
 def geterrors():
     return render_template("error.html")
@@ -187,7 +184,6 @@ def details(task_id):
         return f"Task {task_id} not found"
     else:
         # todo: if sucess open the saved file and render a 256*256 pixel map for succeed ip address
-        # todo: add a timestamp to the record
         return render_template('details.html', task_id=task_id, status_code=status_code)
 
 
