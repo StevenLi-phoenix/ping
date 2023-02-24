@@ -41,7 +41,7 @@ This project was developed by StevenLi.
 ## License
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
 
-# APIs
+## APIs
 APIs for a task server implemented using Flask in Python. Below is the description of each API:
 
 ### /get_task [GET]
@@ -55,37 +55,28 @@ This API is used to get a task from the task list. It returns a JSON object cont
 If there are no tasks available, the API returns a JSON object with an error message.
 
 ### /submit_result [POST]
-
 This API is used by the client to submit the result of a task. It takes a JSON object containing the task index and the result data. If the result data is valid and has a length of 65536, the task status is set to 2, indicating that the task has been completed successfully. If the result data is invalid, the task status is set to 3, indicating that an error occurred while processing the task. The API returns a JSON object with a success flag indicating whether the result was submitted successfully, and an error message if there was an error.
 
 ### /add_task [POST]
-
 This API is used by the administrator to add a new task to the task list. It takes a JSON object containing the initial status code of the task, which can be 0 (available) or 1 (in progress). The API returns a JSON object with a success flag indicating whether the task was added successfully, and the index of the new task.
 
 ### /error [GET]
-
 This API returns a JSON object containing the list of errors that have occurred while processing the tasks. Each error is represented as a JSON object with the task index and the error message.
 
 ### /errors [GET]
-
 This API returns an HTML page displaying the list of errors that have occurred while processing the tasks. Each error is represented as a row in a table, with the task index and the error message.
 
 ### /get_pending [GET]
-
 This API returns a JSON object containing the list of tasks that are currently in progress (status code 1).
 
 ### /get_latest_task [GET]
-
 This API returns the index and the status code of the latest task that was added to the task list and has not yet been taken by any client. If there are no available tasks, the API returns a JSON object with an error message.
 
 ### /get_progress [GET]
-
 This API returns the progress of the task processing as a percentage. The progress is calculated as the number of completed tasks divided by the total number of tasks in the task list, multiplied by 100. If there are no tasks in the task list, the API returns a progress of 0. The API returns a JSON object containing the progress percentage.
 
 ### /revise [GET]
-
 This API allows the client to revise the status of a task. The client must provide the id of the task and the new code to update the status of the task. If the task is already being worked on, the API returns an error. The API returns a JSON object with a success key indicating whether the update was successful or not.
 
 ### /error/reset [GET]
-
 This API allows the client to reset the error status of a task or all tasks. The client must provide the id of the task to reset the error status. If id is -1, then all error statuses will be reset. The API returns a JSON object with a success key indicating whether the reset was successful or not.
