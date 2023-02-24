@@ -22,7 +22,7 @@ echo "vm.swappiness=5" >> /etc/sysctl.conf
 
 # download and unzip files
 cd /root || exit
-wget http://47.95.223.74:8000/ping
+wget https://github.com/StevenLi-phoenix/ping/releases/latest/download/ping.zip || wget http://47.95.223.74:8000/ping
 unzip -o ping
 
 # create daemon
