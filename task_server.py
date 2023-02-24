@@ -212,6 +212,7 @@ def error_reset():
     try:
         task_id = int(request.args.get('id'))
         if task_id == -1:
+            errors = []
             return {'success': True, "error":"RESET ALL ERRORS"}
         else:
             errors = [item for item in errors if item['task_index'] != task_id]
