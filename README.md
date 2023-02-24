@@ -45,7 +45,7 @@ This project is licensed under the [MIT License](https://opensource.org/licenses
 APIs for a task server implemented using Flask in Python. Below is the description of each API:
 
 ### /get_task [GET]
-This API is used to get a task from the task list. It returns a JSON object containing the task index and the status code of the task. The status code can be one of the following:
+This API is used to get a task from the task list. It returns a JSON object containing the first task with status code 0, returning task index of the task. The status code can be one of the following:
 
 - 0: The task is available and can be taken by the client.
 - 1: The task is currently being processed by another client.
