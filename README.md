@@ -15,13 +15,13 @@ https://github.com/StevenLi-phoenix/ping.git
 
 ## Usage
 To start the website, navigate to the project directory and run:
-```python
+```bash
 python task_server.py
 ```
 This will start the server on http://0.0.0.0:8001/.
 
 To start the clients, download the main.py file and run:(on mac and linux)
- ```python
+ ```bash
  sudo python main.py
  ```
 
