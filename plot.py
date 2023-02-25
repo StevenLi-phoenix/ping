@@ -1,4 +1,7 @@
+import multiprocessing
+from multiprocessing import current_process
 import os
+import time
 
 from PIL import Image, ImageDraw
 import json
@@ -23,6 +26,7 @@ def hilbert_curve(x0, y0, xi, xj, yi, yj, n):
 
 # Define the function to draw the Hilbert curve and input string
 def draw_hilbert_curve(input_string):
+    p = current_process()
     # Determine the order n of the Hilbert curve from the length of the input string
     n = 1
     while 2 ** (2 * n) < len(input_string):
@@ -32,16 +36,20 @@ def draw_hilbert_curve(input_string):
     size = 2 ** n
     image = Image.new("1", (size, size), color=0)
 
-    # Iterate over all pixels in the image and set the color based on the input string
-    for i in tqdm(range(size)):
-        for j in range(size):
-            index = xy_to_hilbert(i, j, n)
+    if size == 4096 and n == 12 and not prebuilt_hilbertCurve_4096 is None:
+        for index in tqdm(range(len(input_string)), position=p._identity[0]):
             if input_string[index] == '1':
-                image.putpixel((i, j), 1)
+                image.putpixel(tuple(prebuilt_hilbertCurve_4096[str(index)]), 1)
+    else:
+        # Iterate over all pixels in the image and set the color based on the input string
+        for i in tqdm(range(size), position=p._identity[0]):
+            for j in range(size):
+                index = xy_to_hilbert(i, j, n)
+                if input_string[index] == '1':
+                    image.putpixel((i, j), 1)
 
     # Display the image
-    image.show()
-
+    # image.show()
     return image
 
 
@@ -89,15 +97,8 @@ def rot(n, x, y, rx, ry, d):
         x = n - 1 - x
     return x, y
 
-
-# for ip2 in tqdm(range(256)):
-#     ipdata = json.load(open(os.path.join("ip", str(index),str(ip2)), "r"))
-#     assert ipdata["success"] == True
-#     assert len(ipdata["result_data"]) == 65536
-#     ipdata = ipdata["result_data"]
-#     s += ipdata
-
 def process(index):
+    print(f"PROCESS {index}")
     s = ""
     for ip2 in tqdm(range(256)):
         try:
@@ -108,7 +109,7 @@ def process(index):
             except AssertionError:
                 print(f"{index}-{ip2}: Data Error")
                 sub = ipdata.get("result_data")
-                sub = sub + (65536-len(sub)) * "0"
+                sub = sub + (65536 - len(sub)) * "0"
                 s += sub[:65536]
         except FileNotFoundError:
             print(f"{index}-{ip2}: Data Missing")
@@ -120,6 +121,35 @@ def process(index):
     image.save(path, format="png")
 
 
+def build_cache():
+    print("BUILDING CACHE")
+    prebuilt_hilbertCurve_4096 = {
+        "INFO": "This is a prebuilt 4096 hilbert curve, mapping from index to x,y coordinate",
+        "n": 12,
+        "size": 4096,
+        "mapping": "index to x,y coordinate",
+        "createDate": time.time(),
+    }
+    DATA = {}
+    for i in tqdm(range(4096)):
+        for j in range(4096):
+            index = xy_to_hilbert(i, j, 12)
+            DATA[index] = (i, j)
+    prebuilt_hilbertCurve_4096["DATA"] = DATA
+    print("DUMPING FILE")
+    json.dump(prebuilt_hilbertCurve_4096, open("prebuilt_hilbertCurve_4096.json", "w+"))
+    return DATA
+
+
+print("Start to load prebuild hilbert curve, usually it will take 30 second or more")
+time_start = time.time()
+try:  # try to load cache
+    prebuilt_hilbertCurve_4096 = json.load(open("prebuilt_hilbertCurve_4096.json", "r"))["DATA"]
+except FileNotFoundError:
+    prebuilt_hilbertCurve_4096 = build_cache()
+print(f"Loaded prebuilt hilbert curve, take {round(time.time() - time_start, 2)} seconds")
+
 if __name__ == '__main__':
-    with Pool(8) as p:
+    with Pool(multiprocessing.cpu_count()) as p:
         p.map(process, os.listdir("ip"))
+
