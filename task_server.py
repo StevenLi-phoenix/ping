@@ -24,7 +24,7 @@ try:
 except FileNotFoundError:
     pass
 
-# Load the task list from disk when the program starts
+# Load the error list from disk when the program starts
 try:
     with open('errors.json', 'r') as f:
         errors = json.load(f)
