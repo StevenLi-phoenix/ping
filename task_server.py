@@ -35,7 +35,6 @@ except FileNotFoundError:
 connections = []
 
 
-
 # Define a function to calculate the connection rate
 def calculate_rate():
     # Get the current time
@@ -47,6 +46,7 @@ def calculate_rate():
     # Return the connection rate
     return rate
 
+
 # Save the task list to disk when the program exits
 @atexit.register
 def save_list():
@@ -57,6 +57,7 @@ def save_list():
         json.dump(tasks, f)
     with open('errors.json', 'w') as f:
         json.dump(errors, f)
+
 
 def reset_task_status(index):
     if tasks[index] == 1:
@@ -158,6 +159,7 @@ def get_progress():
         'pending': {k: v for k, v in tasks.items() if v == 1}
     })
 
+
 @app.route('/rate')
 def rate():
     ratec = calculate_rate()
@@ -213,12 +215,12 @@ def error_reset():
         task_id = int(request.args.get('id'))
         if task_id == -1:
             errors = []
-            return {'success': True, "error":"RESET ALL ERRORS"}
+            return {'success': True, "error": "RESET ALL ERRORS"}
         else:
             errors = [item for item in errors if item['task_index'] != task_id]
             return {'success': True}
     except Exception as e:
-        return {'success': False, "error":str(e)}
+        return {'success': False, "error": str(e)}
 
 
 # todo: add an user system to thanks for contributing and calculate the submition time based on their submit likewise
