@@ -3,10 +3,7 @@ import os
 from PIL import Image, ImageDraw
 import json
 from tqdm import tqdm
-
-import logger
-
-log = logger.create_default_logger()
+from multiprocessing import Pool
 
 
 # Define the Hilbert curve function
@@ -44,6 +41,8 @@ def draw_hilbert_curve(input_string):
 
     # Display the image
     image.show()
+
+    return image
 
 
 def xy_to_hilbert(x, y, n):
@@ -91,12 +90,36 @@ def rot(n, x, y, rx, ry, d):
     return x, y
 
 
-# Run the function with an example input string
-# input_string = "1100101001110110" * 4096  # 65536 bits
-s = ""
-for ip2 in tqdm(range(256)):
-    ipdata = json.load(open(os.path.join("ip","47",str(ip2)), "r"))
-    assert ipdata["success"] == True
-    assert len(ipdata["result_data"]) == 65536
-    s += ipdata["result_data"]
-draw_hilbert_curve(s)
+# for ip2 in tqdm(range(256)):
+#     ipdata = json.load(open(os.path.join("ip", str(index),str(ip2)), "r"))
+#     assert ipdata["success"] == True
+#     assert len(ipdata["result_data"]) == 65536
+#     ipdata = ipdata["result_data"]
+#     s += ipdata
+
+def process(index):
+    s = ""
+    for ip2 in tqdm(range(256)):
+        try:
+            ipdata = json.load(open(os.path.join("ip", str(index), str(ip2)), "r"))
+            try:
+                assert len(ipdata.get("result_data")) == 65536
+                s += ipdata["result_data"]
+            except AssertionError:
+                print(f"{index}-{ip2}: Data Error")
+                sub = ipdata.get("result_data")
+                sub = sub + (65536-len(sub)) * "0"
+                s += sub[:65536]
+        except FileNotFoundError:
+            print(f"{index}-{ip2}: Data Missing")
+            s += "0" * 65536
+
+    image = draw_hilbert_curve(s)
+    path = os.path.join("picture", str(index) + ".png")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    image.save(path, format="png")
+
+
+if __name__ == '__main__':
+    with Pool(8) as p:
+        p.map(process, os.listdir("ip"))
