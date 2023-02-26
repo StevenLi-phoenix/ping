@@ -119,6 +119,7 @@ def process(index):
     path = os.path.join("picture", str(index) + ".png")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     image.save(path, format="png")
+    return
 
 
 def build_cache():
@@ -133,6 +134,7 @@ def build_cache():
     DATA = {}
     for i in tqdm(range(4096)):
         for j in range(4096):
+
             index = xy_to_hilbert(i, j, 12)
             DATA[index] = (i, j)
     prebuilt_hilbertCurve_4096["DATA"] = DATA
@@ -140,16 +142,14 @@ def build_cache():
     json.dump(prebuilt_hilbertCurve_4096, open("prebuilt_hilbertCurve_4096.json", "w+"))
     return DATA
 
-
-print("Start to load prebuild hilbert curve, usually it will take 30 second or more")
-time_start = time.time()
-try:  # try to load cache
-    prebuilt_hilbertCurve_4096 = json.load(open("prebuilt_hilbertCurve_4096.json", "r"))["DATA"]
-except FileNotFoundError:
-    prebuilt_hilbertCurve_4096 = build_cache()
-print(f"Loaded prebuilt hilbert curve, take {round(time.time() - time_start, 2)} seconds")
-
 if __name__ == '__main__':
-    with Pool(multiprocessing.cpu_count()) as p:
+    print("Start to load prebuild hilbert curve, usually it will take 30 second or more")
+    time_start = time.time()
+    try:  # try to load cache
+        prebuilt_hilbertCurve_4096 = json.load(open("prebuilt_hilbertCurve_4096.json", "r"))["DATA"]
+    except FileNotFoundError:
+        prebuilt_hilbertCurve_4096 = build_cache()
+    print(f"Loaded prebuilt hilbert curve, take {round(time.time() - time_start, 2)} seconds")
+    with Pool(multiprocessing.cpu_count()//2) as p:
         p.map(process, os.listdir("ip"))
 
