@@ -1,10 +1,11 @@
-# Task Server Website
-This project is a task server website that allows users to participate in a task that involves pinging the entire IPv4 address space using the ICMP protocol. The website provides a convenient and efficient platform for distributing the task to interested users.
+# Ping the world
+This project is python code that allows users to participate in a task that involves pinging the entire IPv4 address space using the ICMP protocol. The task server provides a convenient and efficient platform for distributing the task to interested users.
 
 ## Getting Started
 To join the task, users can download the [ping.zip](https://github.com/StevenLi-phoenix/ping/releases/latest/download/ping.zip) file and extract it. Then start running the "main.py" script using sudo privileges. This will enable them to start pinging the entire IPv4 address space and contribute to the completion of the task.
 
 ## Features
+The client is designed to run stably and patch all the error.
 The website is designed to ensure fair distribution of the task and collation of results in an organized manner. Users can track their progress and see how their contributions are advancing the completion of the task.
 
 ## Installation
@@ -40,6 +41,10 @@ This project was developed by StevenLi.
 
 ## License
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+
+## Result
+I've been running my computer non-stop for days, 24/7, and spent a lot of money buying clusters online to process a specific task. And finally, after all the hard work and dedication, I got the result I was looking for. I'm pleased to announce that the results are now available for download in the release section. The high-resolution version of the output is available, and it's just what I needed to move forward with my project. All the time, money, and effort that I invested in this project were worth it, and I couldn't be happier with the outcome. It's a great feeling to see my hard work pay off in the end.
+<img src="https://github.com/StevenLi-phoenix/ping/releases/download/v2.1/ip_4096.png" alt="picture of ping by 4096x4096"/>
 
 ## APIs
 APIs for a task server implemented using Flask in Python. Below is the description of each API:
