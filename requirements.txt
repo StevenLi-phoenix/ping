@@ -1,0 +1,7 @@
+Pillow
+tqdm
+requests
+DateTime
+Flask
+hilbertcurve
+numpy

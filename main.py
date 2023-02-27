@@ -176,6 +176,9 @@ def main(ip, max_retry_count = CONFIG.RETRY_TIMES):
     ip1, ip2 = ip // 256, ip % 256
     worker.task = ip
     log.info(f"Start group {ip1}-{ip2}")
+    if max_retry_count < 0:  # stop if max_retry_count achieve
+        log.error(f"Assertion error with block {ip1}.{ip2} at group ")
+        return "0" * 65536
     for ip3 in range(256):
         for i in range(256):
             sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")

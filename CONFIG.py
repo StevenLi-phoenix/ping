@@ -8,6 +8,7 @@ ICMP_ECHO_REQUEST = 8
 RETRY_TIMES = 3
 LOOPTIMEOUTSEC = 20
 DELAYONCRITICALERROR = 60
+PLOTCACHEBYPASS = False
 
 # Define the size of the rolling window in minutes
 window_size = 60

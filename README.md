@@ -1,12 +1,12 @@
 # Ping the world
-This project is python code that allows users to participate in a task that involves pinging the entire IPv4 address space using the ICMP protocol. The task server provides a convenient and efficient platform for distributing the task to interested users.
+This project is python code that allows users to participate in a task that involves pinging the entire IPv4 address space using the ICMP protocol. Also a task server provides a convenient and efficient platform for distributing the task to interested users.
 
 ## Getting Started
-To join the task, users can download the [ping.zip](https://github.com/StevenLi-phoenix/ping/releases/latest/download/ping.zip) file and extract it. Then start running the "main.py" script using sudo privileges. This will enable them to start pinging the entire IPv4 address space and contribute to the completion of the task.
+To join the task, users can download the [ping.zip](https://github.com/StevenLi-phoenix/ping/releases/latest/download/ping.zip) file and extract it. Then start running the "main.py" script using sudo privileges. This will start getting task from preset task server and start pinging the entire IPv4 address space and contribute to the completion of the task.
 
 ## Features
-The client is designed to run stably and patch all the error.
-The website is designed to ensure fair distribution of the task and collation of results in an organized manner. Users can track their progress and see how their contributions are advancing the completion of the task.
+The client is designed to run stably and catch all the error.
+The website is designed to ensure distribution of the task and collation of results in an organized manner. Users can track their progress and see how their contributions are advancing the completion of the task.
 
 ## Installation
 To get started with the project, you can clone the repository to your local machine:
@@ -27,17 +27,24 @@ To start the clients, download the main.py file and run:(on mac and linux)
  ```
 
 ## future updates
-In the future, we plan to add a user contribution display on the website. This feature will allow users to see their own contributions as well as the contributions of other users to the task. The display will be updated in real-time to show the progress of the task and how it is being completed by the community.
-
-This feature will help users feel more engaged with the task and provide motivation to continue contributing. It will also allow users to see how their contributions are helping to advance the task and reach its completion faster. We believe that this feature will enhance the overall user experience and make the task server website even more engaging and rewarding for all participants.
-
-We are excited to add this feature to the website and look forward to the positive impact it will have on the task completion process.
+In the future, I plan to add a user contribution display on the website. This feature will allow users to see their own contributions as well as the contributions of other users to the task. The display will be updated in real-time to show who contribute to task and which it is being completed by the community.
 
 ## Contributing
 If you'd like to contribute to this project, please fork the repository and create a pull request.
+Most likely this will not be updated after the project finished.
 
 ## Credits
-This project was developed by StevenLi.
+This project was developed by StevenLi [#](https://github.com/StevenLi-phoenix)
+
+Credits to python [#](https://github.com/python/cpython/graphs/contributors)
+
+The following are Credits for packages used in code:
+- Pillow [#](https://github.com/python-pillow/Pillow/graphs/contributors)
+- tqdm [#](https://github.com/tqdm/tqdm/graphs/contributors)
+- requests [#](https://github.com/psf/requests/graphs/contributors)
+- Flask [#](https://github.com/pallets/flask/graphs/contributors)
+- hilbertcurve (not included in main but used) [#](https://github.com/galtay/hilbertcurve/graphs/contributors)
+- numpy (not included in main but used) [#](https://github.com/numpy/numpy/graphs/contributors)
 
 ## License
 This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).

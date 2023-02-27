@@ -8,6 +8,8 @@ import json
 from tqdm import tqdm
 from multiprocessing import Pool
 
+import CONFIG
+
 
 # Define the Hilbert curve function
 def hilbert_curve(x0, y0, xi, xj, yi, yj, n):
@@ -114,6 +116,15 @@ def process(index):
         except FileNotFoundError:
             print(f"{index}-{ip2}: Data Missing")
             s += "0" * 65536
+        except json.decoder.JSONDecodeError:
+            try:
+                ipdata = open(os.path.join("ip", str(index), str(ip2)), "r").read()
+                assert len(ipdata) == 65536
+                print("[WARN] You are using older version of data structure, switch to new one if possible")
+                s += ipdata
+            except AssertionError:
+                print(f"No idea what the data is check {os.path.join('ip', str(index), str(ip2))}")
+                raise
 
     image = draw_hilbert_curve(s)
     path = os.path.join("picture", str(index) + ".png")
@@ -134,7 +145,6 @@ def build_cache():
     DATA = {}
     for i in tqdm(range(4096)):
         for j in range(4096):
-
             index = xy_to_hilbert(i, j, 12)
             DATA[index] = (i, j)
     prebuilt_hilbertCurve_4096["DATA"] = DATA
@@ -143,13 +153,16 @@ def build_cache():
     return DATA
 
 if __name__ == '__main__':
-    print("Start to load prebuild hilbert curve, usually it will take 30 second or more")
-    time_start = time.time()
-    try:  # try to load cache
-        prebuilt_hilbertCurve_4096 = json.load(open("prebuilt_hilbertCurve_4096.json", "r"))["DATA"]
-    except FileNotFoundError:
-        prebuilt_hilbertCurve_4096 = build_cache()
-    print(f"Loaded prebuilt hilbert curve, take {round(time.time() - time_start, 2)} seconds")
-    with Pool(multiprocessing.cpu_count()//2) as p:
+    if not CONFIG.PLOTCACHEBYPASS:
+        print("Start to load prebuild hilbert curve, usually it will take 30 second or more")
+        time_start = time.time()
+        try:  # try to load cache
+            prebuilt_hilbertCurve_4096 = json.load(open("prebuilt_hilbertCurve_4096.json", "r"))["DATA"]
+        except FileNotFoundError:
+            prebuilt_hilbertCurve_4096 = build_cache()
+        print(f"Loaded prebuilt hilbert curve, take {round(time.time() - time_start, 2)} seconds")
+    else:
+        print("[WARNING] cache is bypassed manually.")
+    with Pool(multiprocessing.cpu_count() // 2) as p:
         p.map(process, os.listdir("ip"))
 
