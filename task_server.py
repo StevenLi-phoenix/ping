@@ -8,6 +8,7 @@ import atexit
 import json
 
 import CONFIG
+import plot
 
 app = Flask(__name__)
 if CONFIG.test:
@@ -185,6 +186,7 @@ def details(task_id):
     if status_code is None:
         return f"Task {task_id} not found"
     else:
+
         # todo: if sucess open the saved file and render a 256*256 pixel map for succeed ip address
         return render_template('details.html', task_id=task_id, status_code=status_code)
 
@@ -222,9 +224,6 @@ def error_reset():
     except Exception as e:
         return {'success': False, "error": str(e)}
 
-
-# todo: add an user system to thanks for contributing and calculate the submition time based on their submit likewise
-#  34 submits/hour or so
 
 @app.route('/ping')
 def online():

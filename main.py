@@ -183,7 +183,6 @@ def main(ip, max_retry_count = CONFIG.RETRY_TIMES):
         for i in range(256):
             sender.sender_queue.put(f"{ip1}.{ip2}.{ip3}.{i}")
         time.sleep(0.1) # wait for maximum package hold
-        # todo: design a waiting packaging Pool for 10K packages
     while not sender.sender_queue.empty():
         time.sleep(0.1)
     time.sleep(2)  # wait for package to return

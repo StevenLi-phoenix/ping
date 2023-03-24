@@ -152,7 +152,7 @@ def build_cache():
     json.dump(prebuilt_hilbertCurve_4096, open("prebuilt_hilbertCurve_4096.json", "w+"))
     return DATA
 
-if __name__ == '__main__':
+def loadCache():
     if not CONFIG.PLOTCACHEBYPASS:
         print("Start to load prebuild hilbert curve, usually it will take 30 second or more")
         time_start = time.time()
@@ -162,7 +162,12 @@ if __name__ == '__main__':
             prebuilt_hilbertCurve_4096 = build_cache()
         print(f"Loaded prebuilt hilbert curve, take {round(time.time() - time_start, 2)} seconds")
     else:
+        prebuilt_hilbertCurve_4096 = {}
         print("[WARNING] cache is bypassed manually.")
+    return prebuilt_hilbertCurve_4096
+
+if __name__ == '__main__':
+    prebuilt_hilbertCurve_4096 = loadCache()
     with Pool(multiprocessing.cpu_count() // 2) as p:
         p.map(process, os.listdir("ip"))
 
