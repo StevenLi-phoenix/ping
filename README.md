@@ -92,3 +92,6 @@ This API allows the client to revise the status of a task. The client must provi
 
 ### /error/reset [GET]
 This API allows the client to reset the error status of a task or all tasks. The client must provide the id of the task to reset the error status. If id is -1, then all error statuses will be reset. The API returns a JSON object with a success key indicating whether the reset was successful or not.
+
+*# read only #*
+StevenLi-phoenix/ping
