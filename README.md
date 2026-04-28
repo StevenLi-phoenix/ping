@@ -1,3 +1,5 @@
+![ping banner](./banner.png)
+
 # Ping the world
 This project is python code that allows users to participate in a task that involves pinging the entire IPv4 address space using the ICMP protocol. Also a task server provides a convenient and efficient platform for distributing the task to interested users.
 
